@@ -67,9 +67,11 @@ class Fourrooms(object):
                     statenum += 1
         self.tocell = {v: k for k, v in self.tostate.items()}
 
-        self.goal = 62
+        #self.goal = 62
 	
         self.init_states = list(range(self.observation_space.n))
+        #random goal
+        self.goal=np.random.choice(self.init_states)
         self.init_states.remove(self.goal)
         # random encode
         self.mapping = np.arange(self.num_pos)

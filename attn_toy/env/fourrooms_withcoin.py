@@ -7,8 +7,8 @@ from gym.envs.registration import register
 import random
 #from attn_toy.env.rendering import *
 from attn_toy.env.fourrooms import Fourrooms,FourroomsNorender
-from copy import copy
-
+from copy import copy,deepcopy
+import cv2
 
 class FourroomsCoin(Fourrooms):
     def __init__(self, max_epilen=400):
@@ -40,8 +40,7 @@ class FourroomsCoin(Fourrooms):
                 self.currentcell = empty_cells[np.random.randint(len(empty_cells))]
 
         state = self.tostate[self.currentcell]
-        reward = 1. if (
-                               state % self.num_pos == self.coin and self.have_coin) or state % self.num_pos == self.goal else 0.
+        reward = 1. if (state % self.num_pos == self.coin and self.have_coin) or state % self.num_pos == self.goal else 0.
         if state == self.coin:
             self.have_coin = False
         if not self.have_coin:
@@ -109,14 +108,15 @@ class FourroomsCoinDynamicNoise(FourroomsCoin):
 
 #no-render version,render version may not be runnable.
 class FourroomsCoinNorender(FourroomsNorender):
-    def __init__(self, max_epilen=400,obs_size=128,seed=0):
+    def __init__(self, max_epilen=400,obs_size=128,seed=10):
         np.random.seed(seed)
         super(FourroomsCoinNorender, self).__init__(max_epilen)
         self.observation_space = spaces.Discrete(self.num_pos * 2)
         self.obs_size = obs_size
         self.obs_height = obs_size
         self.obs_width = obs_size
-        self.coin = 15
+	#random coin
+        self.coin = np.random.choice(self.init_states)
         self.have_coin = True
         self.init_states.remove(self.coin)
         self.mapping = np.arange(self.num_pos * 2)
@@ -125,9 +125,10 @@ class FourroomsCoinNorender(FourroomsNorender):
         self.get_dict()
         self.num_steps=0
         self.max_steps=max_epilen
+        self.previous_action=0
 
     def step(self, action):
-
+        
         try:
             nextcell = tuple(self.currentcell + self.directions[action])
         except TypeError:
@@ -141,6 +142,7 @@ class FourroomsCoinNorender(FourroomsNorender):
 
         state = self.tostate[self.currentcell]
         reward = 1. if (state % self.num_pos == self.coin and self.have_coin) or state % self.num_pos == self.goal else 0.
+        self.state=state
         if state == self.coin:
             self.have_coin = False
         if not self.have_coin:
@@ -152,8 +154,8 @@ class FourroomsCoinNorender(FourroomsNorender):
             self.done = True
 
         info = {}
-        if self.done:
-            info = {'episode': {'r': state == self.goal, 'l': self.current_steps}}
+        if self.done:#for plotting
+            info = {'episode': {'r': (state % self.num_pos == self.goal)+1-self.have_coin, 'l': self.current_steps}}
         return np.array(self.mapping[state]), reward, self.done, info
 
     def reset(self, state=-1):
@@ -163,6 +165,7 @@ class FourroomsCoinNorender(FourroomsNorender):
             self.have_coin = False
         else:
             self.have_coin = True
+        self.state=state
         self.currentcell = self.tocell[state % self.num_pos]
         self.done = False
         self.current_steps = 0
@@ -177,12 +180,12 @@ class FourroomsCoinNorender(FourroomsNorender):
         #obs.shape:(128,128,3)
         return obs
 
-    def render_origin(self):
-        blocks=[]
+    def render_origin(self,blocks=[]):
+        #WARNING:blocks must be exlicitly passed
         if self.have_coin:
             x, y = self.tocell[self.coin]
             blocks.append(self.make_block(x, y, (0, 1, 0)))
-
+        
         arr = super().render(blocks=blocks)
         #arr.shape:(104,104,3)
         return arr
@@ -197,12 +200,21 @@ class FourroomsCoinDynamicNoiseNorender(FourroomsCoinNorender):
         self.background[1, :, :, 2] = 127  # blue background
 
     def render(self, state=-1):
-        which_background = state % 2
-        # print(state,which_background)
-        obs = copy(self.background[which_background, ...])
-        arr = self.render_origin()
+        if state>=0:
+            which_background = state % 2
+        else:
+            which_background = self.state % 2
+        obs = deepcopy(self.background[which_background, ...])
+        arr = self.render_origin(blocks=[])
         padding_height,padding_width = (obs.shape[0]-arr.shape[0])//2,(obs.shape[1]-arr.shape[1])//2
         obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr
-
         return obs
 #plan:complicated noise
+#random coin?
+if __name__=='__main__':
+    env=FourroomsCoinDynamicNoiseNorender()
+    env.reset()
+    cv2.imwrite('coinnoise0.jpg',env.render())
+    env.step(0)
+    cv2.imwrite('coinnoise1.jpg',env.render())
+

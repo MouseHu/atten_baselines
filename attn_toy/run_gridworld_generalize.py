@@ -12,6 +12,7 @@ from attn_toy.env.noisy_fourrooms import FourroomsDynamicNoise3, FourroomsDynami
     ImageInputWarpper, FourroomsRandomNoise
 from attn_toy.env.fourrooms_withcoin import FourroomsCoin,FourroomsCoinDynamicNoise,FourroomsCoinNorender,\
 FourroomsCoinDynamicNoiseNorender
+from attn_toy.env.fourrooms_randkid import FourroomsCoinNoiseKidNorender
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from attn_toy.policies.attn_policy import AttentionPolicy
 from attn_toy.value_iteration import value_iteration
@@ -46,11 +47,11 @@ def train(train_env, test_env, finetune_num_timesteps, num_timesteps, policy, nm
                      lam=0.95, gamma=0.99, noptepochs=10, ent_coef=.01,
                      learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1,
                      replay_buffer=replay_buffer)
-
+    atten_map_interval=50
     for epoch in range(num_timesteps // test_interval):
         model.learn(total_timesteps=test_interval, reset_num_timesteps=epoch == 0)
         print(model.num_timesteps)
-        model.eval(print_attention_map=True, filedir=os.getenv('OPENAI_LOGDIR'))
+        model.eval(print_attention_map=((epoch%atten_map_interval)==0), filedir=os.getenv('OPENAI_LOGDIR'))
         print(model.num_timesteps)
         save_path = os.path.join(os.getenv('OPENAI_LOGDIR'), "save")
         if not os.path.isdir(save_path):
@@ -78,7 +79,7 @@ def make_gridworld(noise_type=1, seed=0):
 #@auther:lzy
 def make_gridworld_withcoin(noise_type=1, seed=0):
     
-    envs = {1: FourroomsCoinNorender,2:FourroomsCoinDynamicNoiseNorender}
+    envs = {1: FourroomsCoinNoiseKidNorender,2:FourroomsCoinDynamicNoiseNorender}
     env = envs.get(noise_type, FourroomsCoinNorender)
 
     def env_fn():
@@ -94,8 +95,8 @@ def main():
     parser.add_argument('--policy', help='Policy architecture', choices=['cnn', 'lstm', 'lnlstm', 'mlp', 'attention'],
                         default='attention')
     parser.add_argument('--n_env', help='Policy architecture', type=int, default=8)
-    parser.add_argument('--finetune_num_timesteps', help='Policy architecture', type=int, default=131072)
-    parser.add_argument('--id', help='experiment id', type=str, default='coin0')
+    parser.add_argument('--finetune_num_timesteps', help='finetune_num_timesteps', type=int, default=2631072)
+    parser.add_argument('--id', help='experiment id', type=str, default='coin3')
     args = parser.parse_args()
     logger.configure()
 
@@ -105,15 +106,16 @@ def main():
     #test_env = SubprocVecEnv([make_gridworld(noise_type=4, seed=args.seed) for _ in range(args.n_env)])
     # print(test_env)
     ##begin
-    replay_buffer = value_iteration(make_gridworld_withcoin(noise_type=1, seed=args.seed)(), gamma=1, filedir="/home/lzy/experiments/attn_"+args.id)
+    replay_buffer = value_iteration(make_gridworld_withcoin(noise_type=2, seed=args.seed)(), gamma=1, filedir="/home/lzy/experiments/attn_"+args.id)
     env = SubprocVecEnv([make_gridworld_withcoin(noise_type=1, seed=args.seed) for _ in range(args.n_env)])
-    test_env = SubprocVecEnv([make_gridworld_withcoin(noise_type=2, seed=args.seed) for _ in range(args.n_env)])
+    test_env = SubprocVecEnv([make_gridworld_withcoin(noise_type=1, seed=args.seed) for _ in range(args.n_env)])
     #end
     train(env, test_env, finetune_num_timesteps=args.finetune_num_timesteps, num_timesteps=args.num_timesteps,
           policy=args.policy, replay_buffer=replay_buffer)
 
 
 if __name__ == '__main__':
+    
     main()
 
 # disp.stop()
