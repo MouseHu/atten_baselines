@@ -33,10 +33,10 @@ class FourroomsCoin(Fourrooms):
 
         if not self.occupancy[nextcell]:
             self.currentcell = nextcell
-            if np.random.uniform() < 0.:
+            if np.random.uniform() < 0:
                 # if self.rng.uniform() < 1/3.:
                 empty_cells = self.empty_around(self.currentcell)
-                # self.currentcell = empty_cells[self.rng.randint(len(empty_cells))]
+         
                 self.currentcell = empty_cells[np.random.randint(len(empty_cells))]
 
         state = self.tostate[self.currentcell]
@@ -136,7 +136,7 @@ class FourroomsCoinNorender(FourroomsNorender):
 
         if not self.occupancy[nextcell]:#if not wall
             self.currentcell = nextcell
-            if np.random.uniform() < 0.:#deterministic
+            if np.random.uniform() < 1/3.:#not deterministic
                 empty_cells = self.empty_around(self.currentcell)
                 self.currentcell = empty_cells[np.random.randint(len(empty_cells))]
 
@@ -210,7 +210,6 @@ class FourroomsCoinDynamicNoiseNorender(FourroomsCoinNorender):
         obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr
         return obs
 #plan:complicated noise
-#random coin?
 if __name__=='__main__':
     env=FourroomsCoinDynamicNoiseNorender()
     env.reset()
