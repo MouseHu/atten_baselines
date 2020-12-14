@@ -57,11 +57,13 @@ class PPO2Repr(ActorCriticRLModel):
 
     def __init__(self, policy, env, test_env=None, gamma=0.99, n_steps=128, ent_coef=0.01, learning_rate=2.5e-4,
                  vf_coef=0.5,
-                 repr_coef=1, contra_coef=1., atten_encoder_coef=5 * 1. / 256, atten_decoder_coef=1.,
+                 repr_coef=1., contra_coef=1., atten_encoder_coef=5 * 1. / 256, atten_decoder_coef=1.,
                  regularize_coef=1e-4,
                  max_grad_norm=0.5, lam=0.95, nminibatches=4, noptepochs=4, cliprange=0.2, cliprange_vf=None,
-                 verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,                 full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None, c_loss_type="origin",use_attention=True, replay_buffer=None):
-        #repr_coef switch
+                 verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
+                 full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None, c_loss_type="origin", use_attention=True,
+                 replay_buffer=None):
+
         self.learning_rate = learning_rate
         self.cliprange = cliprange
         self.cliprange_vf = cliprange_vf
@@ -117,11 +119,10 @@ class PPO2Repr(ActorCriticRLModel):
         self.positive_model = None
         self.negative_model = None
         self.attention_model = None
-        self.repr_coef_ph = None
-        self.num_actions = env.action_space.n
+        self.num_actions = 4
         # self.replay_buffer = EpisodicMemory(10000, env.observation_space.low.shape, env.action_space.n)
         if replay_buffer is None:
-            self.replay_buffer = EpisodicMemory(capacity=20000, obs_shape=env.observation_space.shape,
+            self.replay_buffer = EpisodicMemory(capacity=10000, obs_shape=env.observation_space.shape,
                                            num_actions=env.action_space.n)
         else:
             self.replay_buffer = replay_buffer
@@ -205,7 +206,6 @@ class PPO2Repr(ActorCriticRLModel):
                     self.learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate_ph")
                     self.clip_range_ph = tf.placeholder(tf.float32, [], name="clip_range_ph")
                     self.mem_return_ph = tf.placeholder(tf.float32, [None, self.num_actions], name="mem_return_ph")
-                    self.repr_coef_ph = tf.placeholder(tf.float32, [], name="repr_coef_ph")
 
                     neglogpac = train_model.proba_distribution.neglogp(self.action_ph)
                     neglogpac_stop_gd = train_model.stop_gd_proba_distribution.neglogp(self.action_ph)
@@ -283,12 +283,14 @@ class PPO2Repr(ActorCriticRLModel):
                     attention_min = tf.reduce_min(attention_model.attention, axis=1, keepdims=True)
                     normalized_attention = (attention_model.attention - attention_min) / (
                             attention_max - attention_min + 1e-12)
+                    ball_attention = normalized_attention / tf.norm(normalized_attention, ord=2, axis=1)
                     self.encoder_loss = self.atten_encoder_coef * tf.reduce_mean(
                         tf.norm(normalized_attention, ord=1, axis=1))
                     # self.weight_loss = tf.norm(self.train_model.weighted_w,ord=1)
                     self.decoder_loss = self.atten_decoder_coef * tf.reduce_mean(
                         tf.square(attention_model.mem_value_fn - self.mem_return_ph))
 
+                    self.discripancy_loss = normalized_attention[:,0,:,:] -
                     self.repr_loss = self.contrastive_loss + self.encoder_loss + self.decoder_loss
                     loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef + self.repr_coef * self.repr_loss
                     ppo_loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef
@@ -329,7 +331,7 @@ class PPO2Repr(ActorCriticRLModel):
                         grads, _grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
                     grads = list(zip(grads, self.params))
 
-                    repr_grads = tf.gradients(self.repr_coef_ph * (self.repr_loss + l2_loss), self.repr_params)
+                    repr_grads = tf.gradients(self.repr_coef * (self.repr_loss + l2_loss), self.repr_params)
                     # if self.max_grad_norm is not None:
                     #     repr_grads, _repr_grad_norm = tf.clip_by_global_norm(repr_grads, self.max_grad_norm)
                     repr_grads = list(zip(repr_grads, self.repr_params))
@@ -393,7 +395,7 @@ class PPO2Repr(ActorCriticRLModel):
                     returns,
                     masks, actions, values,
                     neglogpacs, update,
-                    writer, states=None, cliprange_vf=None,repr_coef=1.):
+                    writer, states=None, cliprange_vf=None):
         """
         Training of PPO2 Algorithm
 
@@ -422,8 +424,7 @@ class PPO2Repr(ActorCriticRLModel):
                   self.attention_model.obs_ph: obs_value,
                   self.positive_model.obs_ph: obs_pos,
                   self.negative_model.obs_ph: obs_neg,
-                  self.mem_return_ph: true_returns_target,
-                  self.repr_coef_ph : repr_coef}
+                  self.mem_return_ph: true_returns_target}
         # print(true_returns_target)
         if states is not None:
             td_map[self.train_model.states_ph] = states
@@ -527,6 +528,26 @@ class PPO2Repr(ActorCriticRLModel):
 
         return 0, policy_loss, value_loss, policy_entropy, approxkl, clipfrac
 
+    @staticmethod
+    def emb_dist(emb1, emb2):
+        return tf.maximum(0., tf.reduce_sum(tf.square(emb1 - emb2), axis=1))
+
+    def contrastive_loss_fc(self, emb_cur, emb_next, emb_neq, margin=1., c_type='origin'):
+        if c_type is None or c_type == 'origin':
+            return tf.reduce_mean(
+                tf.maximum(
+                    tf.sqrt(self.emb_dist(emb_cur, emb_neq)) - 2 * tf.sqrt(self.emb_dist(emb_cur, emb_next)) + margin,
+                    0))
+        elif c_type == 'sqmargin':
+            return tf.reduce_mean(self.emb_dist(emb_cur, emb_next) +
+                                  tf.maximum(0.,
+                                             margin - self.emb_dist(emb_cur, emb_neq)))
+        else:
+            return tf.reduce_mean(self.emb_dist(emb_cur, emb_next) + tf.square(tf.maximum(0., margin -
+                                                                                          tf.math.sqrt(
+                                                                                              self.emb_dist(emb_cur,
+                                                                                                            emb_neq)))))
+
     @property
     def test_runner(self) -> AbstractEnvRunner:
         if self._test_runner is None:
@@ -569,7 +590,7 @@ class PPO2Repr(ActorCriticRLModel):
             if print_attention_map:
                 if filedir is None:
                     filedir = os.getenv('OPENAI_LOGDIR')
-                    filedir = os.path.join(filedir, "attention_eval")
+                filedir = os.path.join(filedir, "attention_eval")
                 rnd_indices = np.random.choice(len(obs), 5)
                 for i in range(len(rnd_indices)):
                     ind = rnd_indices[i]
@@ -618,7 +639,7 @@ class PPO2Repr(ActorCriticRLModel):
                     # image * 255)
                     image.transpose((1, 0, 2)))
 
-    def learn(self, total_timesteps, repr_coef=1.,finetune=False, callback=None, log_interval=1, tb_log_name="PPO2",
+    def learn(self, total_timesteps, finetune=False, callback=None, log_interval=1, tb_log_name="PPO2",
               reset_num_timesteps=True, begin_eval=False, print_attention_map=False, filedir=None):
         # Transform to callable if needed
         self.learning_rate = get_schedule_fn(self.learning_rate)
@@ -715,7 +736,7 @@ class PPO2Repr(ActorCriticRLModel):
                                     self._train_step(lr_now, cliprange_now, obs_t_batch, obs_tp1_batch, obs_neg_batch,
                                                      obs_value_batch, return_t_batch,
                                                      *slices, writer=writer,
-                                                     update=timestep, cliprange_vf=cliprange_vf_now,repr_coef=repr_coef))
+                                                     update=timestep, cliprange_vf=cliprange_vf_now))
                 else:  # recurrent version
                     update_fac = max(self.n_batch // self.nminibatches // self.noptepochs // self.n_steps, 1)
                     assert self.n_envs % self.nminibatches == 0
@@ -754,7 +775,7 @@ class PPO2Repr(ActorCriticRLModel):
                                     self._train_step(lr_now, cliprange_now, obs_t_batch, obs_tp1_batch, obs_neg_batch,
                                                      obs_value_batch, return_t_batch, *slices, update=timestep,
                                                      writer=writer, states=mb_states,
-                                                     cliprange_vf=cliprange_vf_now,repr_coef=repr_coef))
+                                                     cliprange_vf=cliprange_vf_now))
 
                 loss_vals = np.mean(mb_loss_vals, axis=0)
                 t_now = time.time()
@@ -791,7 +812,7 @@ class PPO2Repr(ActorCriticRLModel):
                     rnd_indices = np.random.choice(len(obs), 5)
                     if filedir is None:
                         filedir = os.getenv('OPENAI_LOGDIR')
-                        filedir = os.path.join(filedir, "attention_train")
+                    filedir = os.path.join(filedir, "attention_train")
                     for i in range(len(rnd_indices)):
                         ind = rnd_indices[i]
                         self.save_attention(attention[ind], obs[ind], feature_map[i], filedir, self.num_timesteps, i)
@@ -867,7 +888,7 @@ class Runner(AbstractEnvRunner):
     def _run(self):
         """
         Run a learning step of the model
-        
+
         :return:
             - observations: (np.ndarray) the observations
             - rewards: (np.ndarray) the rewards
@@ -878,7 +899,6 @@ class Runner(AbstractEnvRunner):
             - states: (np.ndarray) the internal states of the recurrent policies
             - infos: (dict) the extra information of the model
         """
-
         # mb stands for minibatch
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs, mb_attention = [], [], [], [], [], [], []
         mb_featuremap = []
