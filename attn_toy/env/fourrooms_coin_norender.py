@@ -1,6 +1,5 @@
 """Fourrooms Game with Coins 
 
-
 If you want to extend the game,please inherit FourroomsCoinState and FourroomsCoin.
 
 FourroomsCoinNorender support rendering.
@@ -12,12 +11,12 @@ from gym import error, core,spaces
 from gym.envs.registration import register
 import random
 import numpy as np
-from attn_toy.env.fourrooms import FourroomsBase,FourroomsNorender,FourroomsBaseState
+from attn_toy.env.fourrooms import *
 from attn_toy.env.wrappers import ImageInputWarpper
 from copy import copy,deepcopy
 import abc
-
-
+import cv2
+import time
 
 class FourroomsCoinState(FourroomsBaseState):
     """
@@ -56,7 +55,6 @@ class FourroomsCoinState(FourroomsBaseState):
         self.cum_reward=cum_reward
 
     def coined_state(self):
-        
         num_coins=0
         for k,v in self.coin_dict.items():
             num_coins+=1
@@ -72,10 +70,10 @@ class FourroomsCoin(FourroomsNorender):
 
     This class should not render.
     """
-    def __init__(self, max_epilen=100, goal=None, num_coins=3):
+    def __init__(self, max_epilen=100, goal=None, num_coins=3,seed=0):
         #这里为了兼容留下了random coin，实际上没有用
         
-        super(FourroomsCoin, self).__init__(max_epilen, goal)
+        super(FourroomsCoin, self).__init__(max_epilen, goal,seed=0)
         self.num_coins=num_coins
         assert self.num_pos > (num_coins + 5),"too many coins"
         self.observation_space = spaces.Discrete(self.num_pos * (2 ** num_coins))
@@ -139,8 +137,8 @@ class FourroomsCoin(FourroomsNorender):
         pass
 
 class FourroomsCoinNorender(FourroomsCoin):
-    def __init__(self, max_epilen=100, goal=None, num_coins=3):
-        super().__init__(max_epilen=max_epilen, goal=goal, num_coins=num_coins)
+    def __init__(self, max_epilen=100, goal=None, num_coins=3,seed=0):
+        super().__init__(max_epilen=max_epilen, goal=goal, num_coins=num_coins,seed=seed)
 
     def render(self, mode=0):
         blocks = []
@@ -149,7 +147,7 @@ class FourroomsCoinNorender(FourroomsCoin):
             if count[1]:#exist
                 blocks.append(self.make_block(x, y, (0, 1, 0)))
         blocks.extend(self.make_basic_blocks())
-        # self.viewer.
+        
         arr = self.render_with_blocks(self.origin_background, blocks)
 
         return arr
@@ -255,43 +253,21 @@ class FourroomsCoinDynamicNoiseNorender(FourroomsCoinNorender):
         padding_height,padding_width = (obs.shape[0]-arr.shape[0])//2,(obs.shape[1]-arr.shape[1])//2
         obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr
         return obs
-#plan:complicated noise
+
 if __name__=='__main__':
-    import cv2
-    import time
+
     #print(FourroomsCoinNorender.__mro__)
     env=ImageInputWarpper(FourroomsCoinNorender(seed=time.time()))
-    env.reset()
-    cv2.imwrite('coin0.jpg',env.render())
-    env.step(0)
-    cv2.imwrite('coin1.jpg',env.render())
-    env.step(3)
-    cv2.imwrite('coin2.jpg',env.render())
-    #long run test
-    # reward_list=[]
-    # for i in range(1000):
-    #     _,reward,done,_=env.step(np.random.randint(4))
-    #     reward_list.append(reward)
-    #     if done:
-    #         env.reset()
-    #         print("i={},done\n".format(i))
-    #         print("reward is: "+str(np.sum(reward_list))+'\n')
-    #         reward_list=[]
+    check_render(env)
+    check_env(env,warn=True)
+    check_run(env)
     #stable-baseline test
     
-    from stable_baselines.common.env_checker import check_env
-    check_env(env,warn=True)
-    
-    print(env.observation_space)
-    from stable_baselines.common.cmd_util import make_atari_env
-    from stable_baselines.common.vec_env import VecFrameStack
-    from stable_baselines import ACER,A2C,ACKTR
-    from stable_baselines.common import make_vec_env
-
-    #env = make_vec_env(lambda: env_origin, n_envs=1)
+    env = make_vec_env(lambda: env, n_envs=1)
     model = ACKTR('CnnPolicy',env, verbose=1)
     model.learn(total_timesteps=300000)
     
+    env=ImageInputWarpper(FourroomsCoinNorender(seed=time.time()))
     obs = env.reset()
     reward_list=[]
     for i in range(1000):

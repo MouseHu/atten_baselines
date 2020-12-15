@@ -17,6 +17,12 @@ import random
 from copy import deepcopy
 import abc
 from attn_toy.env.wrappers import ImageInputWarpper
+import cv2
+from stable_baselines.common.env_checker import check_env
+from stable_baselines.common.vec_env import VecFrameStack
+from stable_baselines import ACER,A2C,ACKTR
+from stable_baselines.common import make_vec_env
+from stable_baselines.common.evaluation import evaluate_policy
 
 class FourroomsBaseState(object):
     """State of FourroomsBase
@@ -87,10 +93,11 @@ class FourroomsBase(gym.Env):
     seed
     ...
     """
-    def __init__(self, max_epilen=100, goal=None):
+    def __init__(self, max_epilen=100, goal=None,seed=0):
         """
         goal:None means random goal
         """
+        self.seed(seed)
         self.init_layout()
         self.init_basic(max_epilen,goal)
     def init_layout(self):
@@ -305,8 +312,8 @@ class FourroomsNorender(FourroomsBase):
     A rendered version.
     Image :(104,104,3)
     """
-    def __init__(self, max_epilen=100, goal=77):
-        super().__init__(max_epilen,goal)
+    def __init__(self, max_epilen=100, goal=77,seed=0):
+        super().__init__(max_epilen,goal,seed)
         self.wall_blocks = self.make_wall_blocks()
         #render origin wall blocks to speed up rendering
         self.origin_background = self.render_with_blocks(
@@ -376,51 +383,65 @@ class FourroomsNorender(FourroomsBase):
 #     timestep_limit=20000,
 #     reward_threshold=1,
 # )
+
+def check_render(env):
+    env.reset()
+    cv2.imwrite('test0.jpg',env.render())
+    env.step(0)
+    cv2.imwrite('test1.jpg',env.render())
+    env.step(3)
+    cv2.imwrite('test2.jpg',env.render())
+
+def check_run(env):
+    reward_list=[]
+    for i in range(1000):
+        obs,reward,done,_=env.step(env.action_space.sample())
+        reward_list.append(reward)
+        if done:
+            env.reset()
+            #print("i={},done\n".format(i))
+            #print("reward is: "+str(np.sum(reward_list))+'\n')
+            reward_list=[]
+
 if __name__=='__main__':
     #basic test
-    import cv2
-    from stable_baselines.common.env_checker import check_env
+    
     env_origin=ImageInputWarpper(FourroomsNorender())
+    check_render(env_origin)
     check_env(env_origin,warn=True)
-    env_origin.reset()
-    cv2.imwrite('test0.jpg',env_origin.render())
-    env_origin.step(0)
-    cv2.imwrite('test1.jpg',env_origin.render())
-    env_origin.step(3)
-    cv2.imwrite('test2.jpg',env_origin.render())
-    #long run test
-    # reward_list=[]
-    # for i in range(1000):
-    #     obs,reward,done,_=env.step(np.random.randint(4))
-    #     print(obs.shape)
-    #     reward_list.append(reward)
-    #     if done:
-    #         env.reset()
-    #         print("i={},done\n".format(i))
-    #         print("reward is: "+str(np.sum(reward_list))+'\n')
-    #         reward_list=[]
+    check_run(env_origin)
 
     # stable-baseline test
     # NOTE:well-trained in 100k timesteps by ACKTR for block_size=3
-    print(env_origin.observation_space)
-    from stable_baselines.common.cmd_util import make_atari_env
-    from stable_baselines.common.vec_env import VecFrameStack
-    from stable_baselines import ACER,A2C,ACKTR
-    from stable_baselines.common import make_vec_env
 
-    #env = make_vec_env(lambda: env_origin, n_envs=1)
+    env = make_vec_env(lambda: env_origin, n_envs=1)
     model = ACKTR('CnnPolicy',env_origin, verbose=1)
-    model.learn(total_timesteps=150000)
+    model.learn(total_timesteps=3000)
+    print("Stable_baseline evaluation starts.....\n")
+    #NOTE:evaluate_policy needs vecenv
+    reward_mean,reward_std=evaluate_policy(model,env,n_eval_episodes=20,deterministic=False)
+
+    print("mean reward:"+str(reward_mean)+'\n')
+    print("reward std:"+str(reward_std)+'\n')
+    print("custom evaluation begin\n")
 
     env=ImageInputWarpper(FourroomsNorender())
     obs = env.reset()
+    reward_list_total=[]
+    epilen_list=[]
     reward_list=[]
-    for i in range(3000):
+    last_end=0
+    for i in range(1000):
         action, _states = model.predict(obs)
         obs, rewards, dones, info = env.step(action)
         reward_list.append(rewards)
         if dones:
             obs=env.reset()
-            print("i={},done\n".format(i))
-            print("reward is: "+str(np.sum(reward_list))+'\n')
+            epilen_list.append(i-last_end)
+            last_end=i
+            reward_list_total.append(np.sum(reward_list))
             reward_list=[]
+            if i>900:
+                break
+    print("mean reward:{}\n".format(np.mean(reward_list_total)))
+    print("mean epilen:{}\n".format(np.mean(epilen_list)))
