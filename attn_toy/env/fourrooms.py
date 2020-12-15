@@ -4,7 +4,11 @@ This script contains a basic version of Fourrooms.
 
 If you want to extend the game,please inherit FourroomsBaseState and FourroomsBase.
 
-Fourrooms and FourroomsNorender support rendering in differentt ways.
+Fourrooms and FourroomsNorender support rendering in different ways.
+
+Some design principles,extension advice and test information can be seen in fourrooms_coin_norender.py.
+
+BUG:Loading and saving is not well-tested.
 """
 import numpy as np
 import gym
@@ -246,12 +250,18 @@ class FourroomsBase(gym.Env):
 
     def seed(self, seed):
         np.random.seed(seed)
+
     def close(self):
         self.open=False
 
     def render(self):
         raise NotImplementedError()
+    
+    def inner_state(self):
+        return self.state
 
+    def load(self,state):
+        self.state=state
 # class Fourrooms(FourroomsBase):
 #     # metadata = {'render.modes':['human']}
 #     # state :   number of state, counted from row and col
@@ -337,8 +347,8 @@ class FourroomsNorender(FourroomsBase):
         blocks=[]
         if self.currentcell[0] > 0:
             x, y = self.currentcell
-            blocks.append(self.make_block(x, y, self.agent_color[np.random.randint(100)]))
-            # blocks.append(self.make_block(x, y, (0, 0, 1)))
+            #blocks.append(self.make_block(x, y, self.agent_color[np.random.randint(100)]))
+            blocks.append(self.make_block(x, y, (0, 0, 1)))
         #render goal
         x, y = self.tocell[self.state.goal_n]
         blocks.append(self.make_block(x, y, (1, 0, 0)))
@@ -389,8 +399,12 @@ def check_render(env):
     cv2.imwrite('test0.jpg',env.render())
     env.step(0)
     cv2.imwrite('test1.jpg',env.render())
-    env.step(3)
+    env.step(1)
     cv2.imwrite('test2.jpg',env.render())
+    env.step(2)
+    cv2.imwrite('test3.jpg',env.render())
+    env.step(3)
+    cv2.imwrite('test4.jpg',env.render())
 
 def check_run(env):
     reward_list=[]
@@ -418,7 +432,7 @@ if __name__=='__main__':
     model = ACKTR('CnnPolicy',env_origin, verbose=1)
     model.learn(total_timesteps=3000)
     print("Stable_baseline evaluation starts.....\n")
-    #NOTE:evaluate_policy needs vecenv
+    #NOTE:evaluate_policy needs vec_env
     reward_mean,reward_std=evaluate_policy(model,env,n_eval_episodes=20,deterministic=False)
 
     print("mean reward:"+str(reward_mean)+'\n')

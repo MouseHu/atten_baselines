@@ -1,8 +1,34 @@
 """Fourrooms Game with Coins 
 
-If you want to extend the game,please inherit FourroomsCoinState and FourroomsCoin.
 
-FourroomsCoinNorender support rendering.
+class:
+    + FourroomsCoinState and FourroomsCoin are based on FourroomsBase,
+    you can inherit them for extension.
+    + FourroomsCoinNorender support rendering.
+    + FourroomsCoinBackgroundNoise is an extension example.
+
+------
+Design principles:
+- seperate state,observation and rendering
+- Each heirarchy should be a complete game.
+- easy saving and loading
+- gym interface
+
+------
+Some possible extensions:
+- To change render colors or add background noises,rewrite render functions.
+NOTE:ANY change of layout size should accompany a redefination of observation_space or obs_height and obs width.
+
+- To add enemys,inherit FourroomsCoin.
+- To change game layout,rewrite init_layout.
+- This file includes an extension example FourroomsCoinBackgroundNoise.
+
+------
+Test scripts:
+- check_render(env):check rendering
+- check_env(env):imported from stable_baselines,check whether it follows gym interface
+- check_run(env):random run
+- I also try to train an agent with stable_baselines to check the difficulty and reasonability of game.
 """
 
 import gym
@@ -32,6 +58,8 @@ class FourroomsCoinState(FourroomsBaseState):
     done: bool
     coin_dict: dict int->(int,bool)
         coin->(value,if_exist)
+    ...
+    
     """
     def __init__(self,position_n:int,current_steps:int,goal_n:int,done:bool,num_pos:int,\
     coin_dict:dict,num_coins,cum_reward:list):
@@ -73,7 +101,7 @@ class FourroomsCoin(FourroomsNorender):
     def __init__(self, max_epilen=100, goal=None, num_coins=3,seed=0):
         #这里为了兼容留下了random coin，实际上没有用
         
-        super(FourroomsCoin, self).__init__(max_epilen, goal,seed=0)
+        super(FourroomsCoin, self).__init__(max_epilen, goal,seed=seed)
         self.num_coins=num_coins
         assert self.num_pos > (num_coins + 5),"too many coins"
         self.observation_space = spaces.Discrete(self.num_pos * (2 ** num_coins))
@@ -97,7 +125,7 @@ class FourroomsCoin(FourroomsNorender):
             self.currentcell = nextcell
 
         state = self.tostate[self.currentcell]
-        
+        self.state.position_n=state
         if state == self.state.goal_n:
             reward=10
         elif self.state.coin_dict.get(state,(0,False))[1]:#if find coin
@@ -234,22 +262,20 @@ class FourroomsCoinNorender(FourroomsCoin):
 #         #arr.shape:(104,104,3)
 #         return arr
 
-class FourroomsCoinDynamicNoiseNorender(FourroomsCoinNorender):
+# an extension example
+class FourroomsCoinBackgroundNoise(FourroomsCoinNorender):
     def __init__(self, max_epilen=400, obs_size=128,seed=0):
-        super(FourroomsCoinDynamicNoiseNorender, self).__init__(max_epilen,seed=seed)
+        super(FourroomsCoinBackgroundNoise, self).__init__(max_epilen,seed=seed)
+        self.obs_height=obs_size
+        self.obs_width=obs_size
         self.background = np.zeros((2, obs_size, obs_size, 3),dtype=np.int)
         self.background[0, :, :, 1] = 127  # red background
-        # self.background[0, :, :, 2] = 127  # red background
-        # self.background[1, :, :, 1] = 127  # blue background
         self.background[1, :, :, 2] = 127  # blue background
 
-    def render(self, state=-1):
-        if state>=0:
-            which_background = state % 2
-        else:
-            which_background = self.state % 2
+    def render(self,mode=0):
+        which_background = self.state.position_n % 2
         obs = deepcopy(self.background[which_background, ...])
-        arr = self.render_origin(blocks=[])
+        arr = super().render()
         padding_height,padding_width = (obs.shape[0]-arr.shape[0])//2,(obs.shape[1]-arr.shape[1])//2
         obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr
         return obs
@@ -261,8 +287,9 @@ if __name__=='__main__':
     check_render(env)
     check_env(env,warn=True)
     check_run(env)
+    print("basic check finished")
+
     #stable-baseline test
-    
     env = make_vec_env(lambda: env, n_envs=1)
     model = ACKTR('CnnPolicy',env, verbose=1)
     model.learn(total_timesteps=300000)
