@@ -11,6 +11,13 @@ from copy import copy,deepcopy
 import cv2
 
 class FourroomsCoin(Fourrooms):
+    """Fourroom game with agent,goal and coin.
+
+    ···
+    Attributes:
+    ------------
+    
+    """
     def __init__(self, max_epilen=400):
         super(FourroomsCoin, self).__init__(max_epilen)
         self.observation_space = spaces.Discrete(self.num_pos * 2)
@@ -105,115 +112,7 @@ class FourroomsCoinDynamicNoise(FourroomsCoin):
         padding_height,padding_width = (obs.shape[0]-arr.shape[0])//2,(obs.shape[1]-arr.shape[1])//2
         obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr
         return obs
-
-#no-render version,render version may not be runnable.
-class FourroomsCoinNorender(FourroomsNorender):
-    def __init__(self, max_epilen=400,obs_size=128,seed=10):
-        np.random.seed(seed)
-        super(FourroomsCoinNorender, self).__init__(max_epilen)
-        self.observation_space = spaces.Discrete(self.num_pos * 2)
-        self.obs_size = obs_size
-        self.obs_height = obs_size
-        self.obs_width = obs_size
-	#random coin
-        self.coin = np.random.choice(self.init_states)
-        self.have_coin = True
-        self.init_states.remove(self.coin)
-        self.mapping = np.arange(self.num_pos * 2)
-        self.dict = np.zeros((self.observation_space.n, 3))
-        self.state_space_capacity = self.observation_space.n
-        self.get_dict()
-        self.num_steps=0
-        self.max_steps=max_epilen
-        self.previous_action=0
-
-    def step(self, action):
         
-        try:
-            nextcell = tuple(self.currentcell + self.directions[action])
-        except TypeError:
-            nextcell = tuple(self.currentcell + self.directions[action[0]])
-
-        if not self.occupancy[nextcell]:#if not wall
-            self.currentcell = nextcell
-            if np.random.uniform() < 1/3.:#not deterministic
-                empty_cells = self.empty_around(self.currentcell)
-                self.currentcell = empty_cells[np.random.randint(len(empty_cells))]
-
-        state = self.tostate[self.currentcell]
-        reward = 1. if (state % self.num_pos == self.coin and self.have_coin) or state % self.num_pos == self.goal else 0.
-        self.state=state
-        if state == self.coin:
-            self.have_coin = False
-        if not self.have_coin:
-            state += self.num_pos
-        self.current_steps += 1
-
-        self.done = (state % self.num_pos == self.goal)#until find goal
-        if self.current_steps >= self.max_epilen and self.done==False:
-            self.done = True
-
-        info = {}
-        if self.done:#for plotting
-            info = {'episode': {'r': (state % self.num_pos == self.goal)+1-self.have_coin, 'l': self.current_steps}}
-        return np.array(self.mapping[state]), reward, self.done, info
-
-    def reset(self, state=-1):
-        if state < 0:
-            state = np.random.choice(self.init_states)
-        if state >= self.num_pos or state == self.coin:
-            self.have_coin = False
-        else:
-            self.have_coin = True
-        self.state=state
-        self.currentcell = self.tocell[state % self.num_pos]
-        self.done = False
-        self.current_steps = 0
-        return np.array(self.mapping[state])
-
-    def render(self, state=-1):
-        arr=self.render_origin()
-        #expand to dim,a tmp workaround
-        obs= np.zeros((self.obs_size, self.obs_size, 3),dtype=np.int)
-        padding_height,padding_width = (obs.shape[0]-arr.shape[0])//2,(obs.shape[1]-arr.shape[1])//2
-        obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr
-        #obs.shape:(128,128,3)
-        return obs
-
-    def render_origin(self,blocks=[]):
-        #WARNING:blocks must be exlicitly passed
-        if self.have_coin:
-            x, y = self.tocell[self.coin]
-            blocks.append(self.make_block(x, y, (0, 1, 0)))
-        
-        arr = super().render(blocks=blocks)
-        #arr.shape:(104,104,3)
-        return arr
-
-class FourroomsCoinDynamicNoiseNorender(FourroomsCoinNorender):
-    def __init__(self, max_epilen=400, obs_size=128,seed=0):
-        super(FourroomsCoinDynamicNoiseNorender, self).__init__(max_epilen,seed=seed)
-        self.background = np.zeros((2, obs_size, obs_size, 3),dtype=np.int)
-        self.background[0, :, :, 1] = 127  # red background
-        # self.background[0, :, :, 2] = 127  # red background
-        # self.background[1, :, :, 1] = 127  # blue background
-        self.background[1, :, :, 2] = 127  # blue background
-
-    def render(self, state=-1):
-        if state>=0:
-            which_background = state % 2
-        else:
-            which_background = self.state % 2
-        obs = deepcopy(self.background[which_background, ...])
-        arr = self.render_origin(blocks=[])
-        padding_height,padding_width = (obs.shape[0]-arr.shape[0])//2,(obs.shape[1]-arr.shape[1])//2
-        obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr
-        return obs
-#plan:complicated noise
 if __name__=='__main__':
-    env=FourroomsCoinDynamicNoiseNorender()
-    env.reset()
-    cv2.imwrite('coinnoise0.jpg',env.render())
-    env.step(0)
-    cv2.imwrite('coinnoise1.jpg',env.render())
+    pass
 

@@ -8,7 +8,8 @@ from stable_baselines import PPO2, PPO2Repr, logger
 from stable_baselines.common.cmd_util import make_atari_env, atari_arg_parser
 from stable_baselines.common.vec_env import VecFrameStack
 from stable_baselines.common.policies import CnnPolicy, CnnLstmPolicy, CnnLnLstmPolicy, MlpPolicy
-from attn_toy.env.noisy_fourrooms import FourroomsDynamicNoise3, FourroomsDynamicNoise2, FourroomsDynamicNoise,ImageInputWarpper, FourroomsRandomNoise, FourroomsOptimalNoise,\ FourroomsMyNoise,FourroomsRandomNoisePos,FourroomsOptimalNoisePos \
+from attn_toy.env.noisy_fourrooms import FourroomsDynamicNoise3, FourroomsDynamicNoise2, FourroomsDynamicNoise,ImageInputWarpper, FourroomsRandomNoise, FourroomsOptimalNoise,\
+FourroomsMyNoise,FourroomsRandomNoisePos,FourroomsOptimalNoisePos
 from attn_toy.env.fourrooms_multicoin import FourroomsMultiCoinRandomNoise
 from attn_toy.env.fourrooms_withcoin import FourroomsCoin,FourroomsCoinDynamicNoise,FourroomsCoinNorender,\
 FourroomsCoinDynamicNoiseNorender
