@@ -8,18 +8,15 @@ from stable_baselines import PPO2, PPO2Repr, logger
 from stable_baselines.common.cmd_util import make_atari_env, atari_arg_parser
 from stable_baselines.common.vec_env import VecFrameStack
 from stable_baselines.common.policies import CnnPolicy, CnnLstmPolicy, CnnLnLstmPolicy, MlpPolicy
-from attn_toy.env.noisy_fourrooms import FourroomsDynamicNoise3, FourroomsDynamicNoise2, FourroomsDynamicNoise,ImageInputWarpper, FourroomsRandomNoise, FourroomsOptimalNoise,\
-FourroomsMyNoise,FourroomsRandomNoisePos,FourroomsOptimalNoisePos
-from attn_toy.env.fourrooms_multicoin import FourroomsMultiCoinRandomNoise
-from attn_toy.env.fourrooms_withcoin import FourroomsCoin,FourroomsCoinDynamicNoise,FourroomsCoinNorender,\
-FourroomsCoinDynamicNoiseNorender
-from attn_toy.env.fourrooms_randkid import FourroomsCoinNoiseKidNorender
+
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from attn_toy.policies.attn_policy import AttentionPolicy
 from attn_toy.value_iteration import value_iteration
 import os
 import numpy as np
 from stable_baselines.common.schedules import ConstantSchedule, PiecewiseSchedule, LinearSchedule
+from attn_toy.env.fourrooms_coin_norender import FourroomsCoinNorender,FourroomsCoinBackgroundNoise
+from attn_toy.env.wrappers import ImageInputWarpper
 
 
 def train(train_env, test_env, finetune_num_timesteps, num_timesteps, policy, nminibatches=4, n_steps=128, repr_coef=0.,
@@ -88,8 +85,7 @@ def make_gridworld(noise_type=1, seed=0, env_kwargs={}):
     return env_fn
 
 def make_gridworld_withcoin(noise_type=1, seed=0):
-    
-    envs = {1: FourroomsCoinNoiseKidNorender,2:FourroomsCoinDynamicNoiseNorender}
+    envs = {1: FourroomsCoinNorender,2:FourroomsCoinBackgroundNoise}
     env = envs.get(noise_type, FourroomsCoinNorender)
 
     def env_fn():
@@ -113,15 +109,14 @@ def main():
     args = parser.parse_args()
     logger.configure()
     print("seed:", args.seed)
-    replay_buffer = value_iteration(make_gridworld(noise_type=3, seed=args.seed)(), gamma=1, filedir="/home/lzy/experiments/attn_"+args.id)
-    optimal_action = np.argmax(replay_buffer.returns[:replay_buffer.curr_capacity], axis=1)
+    replay_buffer = value_iteration(make_gridworld_withcoin(noise_type=0, seed=args.seed)(), gamma=1, filedir="/home/lzy/experiments/attn_"+args.id)
+    # optimal_action = np.argmax(replay_buffer.returns[:replay_buffer.curr_capacity], axis=1)
     env = SubprocVecEnv(
-        [make_gridworld(noise_type=9, seed=args.seed, env_kwargs={"goal": 77, "optimal_action": optimal_action})
+        [make_gridworld_withcoin(noise_type=0, seed=args.seed)
          for _ in range(args.n_env)])
     # env = VecFrameStack(make_atari_env(args.env, args.n_envs, args.seed), 4)
     test_env = SubprocVecEnv(
-        [make_gridworld(noise_type=8, seed=args.seed + 1,
-                        env_kwargs={"goal": 77}) for _ in range(args.n_env)])
+        [make_gridworld_withcoin(noise_type=1, seed=args.seed + 1) for _ in range(args.n_env)])
     seed_file = os.path.join(os.getenv('OPENAI_LOGDIR'), "seed.txt")
     with open(seed_file, "w") as f:
         f.write(str(args.seed))

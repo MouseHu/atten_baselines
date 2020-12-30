@@ -42,6 +42,9 @@ class FourroomsBaseState(object):
     goal_n:int
         The numeralized position of goal.
     done: bool
+        whether position_n==goal_n or current_steps>max_epilen
+    num_pos:int
+        number of positions in env,saved for convenience and It should not be changed
     """
     def __init__(self,position_n:int,current_steps:int,goal_n:int,done:bool,num_pos:int):
         self.position_n=position_n
@@ -52,6 +55,9 @@ class FourroomsBaseState(object):
 
     def to_obs(self)->np.array:
         return np.array(self.position_n)
+
+    def to_tuple(self):
+        return (self.position_n,self.current_steps,self.goal_n,self.done)
 
 class FourroomsBase(gym.Env):
     metadata = {'render.modes': ['rgb_array']}
@@ -97,10 +103,12 @@ class FourroomsBase(gym.Env):
     seed
     ...
     """
-    def __init__(self, max_epilen=100, goal=None,seed=0):
+    def __init__(self, max_epilen=100, goal=None,seed=0,random=False):
         """
         goal:None means random goal
         """
+        self.have_coin=False
+        self.random=1/3 if random else 0
         self.seed(seed)
         self.init_layout()
         self.init_basic(max_epilen,goal)
@@ -120,7 +128,7 @@ class FourroomsBase(gym.Env):
 1     1     1
 1111111111111
 """
-        self.block_size = 3
+        self.block_size = 8
         self.occupancy = np.array(
             [np.array(list(map(lambda c: 1 if c == '1' else 0, line))) for line in self.layout.splitlines()])
         self.num_pos = int(np.sum(self.occupancy == 0))
@@ -160,7 +168,7 @@ class FourroomsBase(gym.Env):
         if goal!=None and goal>(self.observation_space.n):
             raise ValueError("invalid goal position")
         self.goal=goal
-        self.open=False
+        
 
     def get_dict(self):
         """
@@ -199,7 +207,7 @@ class FourroomsBase(gym.Env):
             goal=self.goal
         init_states.remove(goal)
         init_position = np.random.choice(init_states)
-        self.currentcell = self.tocell[init_position]
+        
         self.state = FourroomsBaseState(position_n=init_position,current_steps=0,goal_n=goal,done = False,\
         num_pos=self.num_pos)
         
@@ -216,20 +224,25 @@ class FourroomsBase(gym.Env):
 
         We consider a case in which rewards are zero on all state transitions.
         """
-        if not self.open:
+        if self.state.done:
             raise Exception("Environment should be reseted")
+        currentcell = self.tocell[self.state.position_n]
+        possible_actions=list(range(self.action_space.n))
         try:
-            nextcell = tuple(self.currentcell + self.directions[action])
+            nextcell = tuple(currentcell + self.directions[action])
+            possible_actions.remove(action)
         except TypeError:
-            nextcell = tuple(self.currentcell + self.directions[action[0]])
+            nextcell = tuple(currentcell + self.directions[action[0]])
+            possible_actions.remove(action[0])
+
+        if np.random.uniform() < self.random:#random or determined
+            random_action=np.random.choice(possible_actions)
+            nextcell = tuple(currentcell + self.directions[action])
 
         if not self.occupancy[nextcell]:
-            self.currentcell = nextcell
-            if np.random.uniform() < 1/3:#impossible??
-                empty_cells = self.empty_around(self.currentcell)
-                self.currentcell = empty_cells[np.random.randint(len(empty_cells))]
+            currentcell=nextcell
 
-        position_n = self.tostate[self.currentcell]
+        position_n = self.tostate[currentcell]
 
         self.state.current_steps += 1
         self.state.done = (position_n == self.state.goal_n) or (self.state.current_steps >= self.max_epilen)
@@ -239,10 +252,10 @@ class FourroomsBase(gym.Env):
             info = {'episode': {'r': 10 - self.state.current_steps*0.1 if (position_n==self.state.goal_n)\
              else -self.state.current_steps*0.1,
                                 'l': self.state.current_steps}}
-            self.open=False
+            
         self.state.position_n = position_n
 
-        if position_n == self.state.goal_n:
+        if self.state.position_n == self.state.goal_n:
             reward = 10
         else:
             reward = -0.1
@@ -252,7 +265,7 @@ class FourroomsBase(gym.Env):
         np.random.seed(seed)
 
     def close(self):
-        self.open=False
+        pass
 
     def render(self):
         raise NotImplementedError()
@@ -324,13 +337,17 @@ class FourroomsNorender(FourroomsBase):
     """
     def __init__(self, max_epilen=100, goal=77,seed=0):
         super().__init__(max_epilen,goal,seed)
+
+
+        self.agent_color = np.random.rand(100, 3)
+        self.init_background()
+        # print(self.background.shape)
+    def init_background(self):
         self.wall_blocks = self.make_wall_blocks()
         #render origin wall blocks to speed up rendering
         self.origin_background = self.render_with_blocks(
             255 * np.ones((self.obs_height, self.obs_width, 3), dtype=np.uint8),
             self.wall_blocks)
-        self.agent_color = np.random.rand(100, 3)
-        # print(self.background.shape)
 
     def render(self, mode=0):
         """
@@ -345,8 +362,9 @@ class FourroomsNorender(FourroomsBase):
         return arr
     def make_basic_blocks(self):
         blocks=[]
-        if self.currentcell[0] > 0:
-            x, y = self.currentcell
+        currentcell=self.tocell[self.state.position_n]
+        if currentcell[0] > 0:
+            x, y = currentcell
             #blocks.append(self.make_block(x, y, self.agent_color[np.random.randint(100)]))
             blocks.append(self.make_block(x, y, (0, 0, 1)))
         #render goal
@@ -387,6 +405,27 @@ class FourroomsNorender(FourroomsBase):
              [(x + 1) * size, y * size]]
         geom = (v, color)
         return geom
+    
+    def render_state(self,state):
+        #a temp workaround
+        tmp,self.state=self.state,state
+        arr=self.render()
+        self.state=tmp
+        return arr
+
+    def render_huge(self):
+        tmp=self.block_size
+        self.block_size=50
+        self.obs_height=50*self.Row
+        self.obs_width=50*self.Col
+
+        self.init_background()
+        arr=self.render()
+        self.block_size=tmp
+        self.obs_height=tmp*self.Row
+        self.obs_width=tmp*self.Col
+        self.init_background()
+        return arr
 # register(
 #     id='Fourrooms-v0',
 #     entry_point='fourrooms:Fourrooms',

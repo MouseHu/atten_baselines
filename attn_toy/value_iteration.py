@@ -3,7 +3,7 @@ from attn_toy.memory.episodic_memory import EpisodicMemory
 import pickle
 import os
 
-
+#其实是算出每个obs(state)的Q函数
 def value_iteration(env, gamma=0.99, buffer_size=2000, filedir=None):
     # print(env.color)
     if filedir is not None:
@@ -14,6 +14,7 @@ def value_iteration(env, gamma=0.99, buffer_size=2000, filedir=None):
                 replay_buffer = pickle.load(file)
                 replay_buffer.gamma = 1
                 return replay_buffer
+    #首先要找出所有state
     num_state = env.state_space_capacity
     values = np.zeros(num_state)
     transition = np.zeros((num_state, env.action_space.n))

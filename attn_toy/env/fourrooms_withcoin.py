@@ -1,3 +1,5 @@
+#This file is aborted.
+
 import numpy as np
 import gym
 import time
@@ -6,17 +8,13 @@ from gym import core, spaces
 from gym.envs.registration import register
 import random
 #from attn_toy.env.rendering import *
-from attn_toy.env.fourrooms import Fourrooms,FourroomsNorender
+from attn_toy.env.fourrooms import FourroomsBase,FourroomsNorender
 from copy import copy,deepcopy
 import cv2
 
 class FourroomsCoin(Fourrooms):
-    """Fourroom game with agent,goal and coin.
-
-    ···
-    Attributes:
-    ------------
-    
+    """
+    Fourroom game with agent,goal and coin.
     """
     def __init__(self, max_epilen=400):
         super(FourroomsCoin, self).__init__(max_epilen)
@@ -93,25 +91,6 @@ class FourroomsCoin(Fourrooms):
         arr = self.viewer.render(return_rgb_array=True)
 
         return arr
-
-
-class FourroomsCoinDynamicNoise(FourroomsCoin):
-    def __init__(self, max_epilen=100, obs_size=128):
-        super(FourroomsCoinDynamicNoise, self).__init__(max_epilen)
-        self.background = np.zeros((2, obs_size, obs_size, 3),dtype=np.int)
-        # self.background[0, :, :, 1] = 127  # red background
-        # self.background[0, :, :, 2] = 127  # red background
-        # self.background[1, :, :, 1] = 127  # blue background
-        # self.background[1, :, :, 2] = 127  # blue background
-
-    def render(self, state=-1):
-        which_background = state % 2
-        # print(state,which_background)
-        obs = copy(self.background[which_background, ...])
-        arr = super(FourroomsCoinDynamicNoise,self).render(state)
-        padding_height,padding_width = (obs.shape[0]-arr.shape[0])//2,(obs.shape[1]-arr.shape[1])//2
-        obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr
-        return obs
         
 if __name__=='__main__':
     pass

@@ -21,7 +21,7 @@ NOTE:ANY change of layout size should accompany a redefination of observation_sp
 
 - To add enemys,inherit FourroomsCoin.
 - To change game layout,rewrite init_layout.
-- This file includes an extension example FourroomsCoinBackgroundNoise.
+- This file includes extension examples: FourroomsCoinBackgroundNoise and FourroomsCoinRandomNoise.
 
 ------
 Test scripts:
@@ -39,10 +39,16 @@ import random
 import numpy as np
 from attn_toy.env.fourrooms import *
 from attn_toy.env.wrappers import ImageInputWarpper
-from copy import copy,deepcopy
+from copy import deepcopy
 import abc
 import cv2
 import time
+from stable_baselines.common.env_checker import check_env
+from stable_baselines.common.vec_env import VecFrameStack
+from stable_baselines import ACER,A2C,ACKTR,DQN
+from stable_baselines.common import make_vec_env
+from stable_baselines.common.evaluation import evaluate_policy
+
 
 class FourroomsCoinState(FourroomsBaseState):
     """
@@ -92,6 +98,13 @@ class FourroomsCoinState(FourroomsBaseState):
 
     def to_obs(self)->np.array:
         return np.array(self.coined_state())
+    
+    def to_tuple(self)->tuple:
+        #convert dict to tuple of tuples
+        l=[]
+        for k,v in self.coin_dict.items():
+            l.append((k,v[0],v[1]))
+        return (self.position_n,self.current_steps,self.goal_n,self.done,tuple(l))
 
 class FourroomsCoin(FourroomsNorender):
     """Fourroom game with agent,goal and coins that inherits gym.Env.
@@ -106,25 +119,36 @@ class FourroomsCoin(FourroomsNorender):
         assert self.num_pos > (num_coins + 5),"too many coins"
         self.observation_space = spaces.Discrete(self.num_pos * (2 ** num_coins))
         coin_list = np.random.choice(self.init_states, num_coins, replace=False)
+        if num_coins>0:
+            self.have_coin=True
         #You can change the value of coin here
         coin_dict = {coin:(1,True) for coin in coin_list}
         # random encode
         super().reset()
+
         self.state=FourroomsCoinState(self.state,coin_dict,num_coins,cum_reward=[])
         
         
     def step(self, action):
-        if not self.open:
+        if self.state.done:
             raise Exception("Environment should be reseted")
+        currentcell=self.tocell[self.state.position_n]
+        possible_actions=list(range(self.action_space.n))
         try:
-            nextcell = tuple(self.currentcell + self.directions[action])
+            nextcell = tuple(currentcell + self.directions[action])
+            possible_actions.remove(action)
         except TypeError:
-            nextcell = tuple(self.currentcell + self.directions[action[0]])
+            nextcell = tuple(currentcell + self.directions[action[0]])
+            possible_actions.remove(action[0])
+
+        if np.random.uniform() < self.random:#random or determined
+            random_action=np.random.choice(possible_actions)
+            nextcell = tuple(currentcell + self.directions[action])
 
         if not self.occupancy[nextcell]:
-            self.currentcell = nextcell
+            currentcell = nextcell
 
-        state = self.tostate[self.currentcell]
+        state = self.tostate[currentcell]
         self.state.position_n=state
         if state == self.state.goal_n:
             reward=10
@@ -141,8 +165,8 @@ class FourroomsCoin(FourroomsNorender):
         info = {}
         if self.state.done:
             info = {'episode': {'r': np.sum(self.state.cum_reward), 'l': self.state.current_steps}}
+            #print(np.sum(self.state.cum_reward))
             self.state.cum_reward = []
-            self.open=False
 
         return self.state.to_obs(), reward, self.state.done, info
 
@@ -165,11 +189,17 @@ class FourroomsCoin(FourroomsNorender):
         pass
 
 class FourroomsCoinNorender(FourroomsCoin):
-    def __init__(self, max_epilen=100, goal=None, num_coins=3,seed=0):
+    def __init__(self, max_epilen=100, goal=None, num_coins=1,seed=0):
         super().__init__(max_epilen=max_epilen, goal=goal, num_coins=num_coins,seed=seed)
 
     def render(self, mode=0):
         blocks = []
+        return self.render_coin_blocks(blocks)
+
+    def render_coin_blocks(self,blocks=[]):
+        """
+        You must explicitly pass blocks
+        """
         for coin, count in self.state.coin_dict.items():
             x, y = self.tocell[coin]
             if count[1]:#exist
@@ -177,97 +207,32 @@ class FourroomsCoinNorender(FourroomsCoin):
         blocks.extend(self.make_basic_blocks())
         
         arr = self.render_with_blocks(self.origin_background, blocks)
-
         return arr
-
-# class FourroomsCoinNorender(FourroomsNorender):
-#     def __init__(self, max_epilen=400,obs_size=128,seed=10):
-#         super(FourroomsCoinNorender, self).__init__(max_epilen)
-#         #self.observation_space = spaces.Discrete(self.num_pos * 2)
-#         self.obs_size = obs_size
-#         self.obs_height = obs_size
-#         self.obs_width = obs_size
-# 	    #random coin
-#         self.coin = np.random.choice(self.init_states)
-#         self.have_coin = True
-#         self.init_states.remove(self.coin)
-#         self.mapping = np.arange(self.num_pos * 2)
-#         self.dict = np.zeros((self.observation_space.n, 3))
-#         self.state_space_capacity = self.observation_space.n
-#         self.get_dict()
-#         self.max_steps=max_epilen
-#         self.previous_action=0
-#         self.seed(seed)
-
-#     def step(self, action):
         
-#         try:
-#             nextcell = tuple(self.currentcell + self.directions[action])
-#         except TypeError:
-#             nextcell = tuple(self.currentcell + self.directions[action[0]])
+    def render_huge(self):
+        tmp=self.block_size
+        self.block_size=50
+        self.obs_height=50*self.Row
+        self.obs_width=50*self.Col
 
-#         if not self.occupancy[nextcell]:#if not wall
-#             self.currentcell = nextcell
-#             if np.random.uniform() < 1/3.:#not deterministic
-#                 empty_cells = self.empty_around(self.currentcell)
-#                 self.currentcell = empty_cells[np.random.randint(len(empty_cells))]
-
-#         state = self.tostate[self.currentcell]
-#         reward = 1. if (state % self.num_pos == self.coin and self.have_coin) or state % self.num_pos == self.goal else 0.
-#         self.state=state
-#         if state == self.coin:
-#             self.have_coin = False
-#         if not self.have_coin:
-#             state += self.num_pos
-#         self.current_steps += 1
-
-#         self.done = (state % self.num_pos == self.goal)#until find goal
-#         if self.current_steps >= self.max_epilen and self.done==False:
-#             self.done = True
-
-#         info = {}
-#         if self.done:#for plotting
-#             info = {'episode': {'r': (state % self.num_pos == self.goal)+1-self.have_coin, 'l': self.current_steps}}
-#         return np.array(self.mapping[state]), reward, self.done, info
-
-#     def reset(self, state=-1):
-#         if state < 0:
-#             state = np.random.choice(self.init_states)
-#         if state >= self.num_pos or state == self.coin:
-#             self.have_coin = False
-#         else:
-#             self.have_coin = True
-#         self.state=state
-#         self.currentcell = self.tocell[state % self.num_pos]
-#         self.done = False
-#         self.current_steps = 0
-#         return np.array(self.mapping[state])
-
-#     def render(self, state=-1):
-#         arr=self.render_origin()
-#         #expand to dim,a tmp workaround
-#         obs= np.zeros((self.obs_size, self.obs_size, 3),dtype=np.int)
-#         padding_height,padding_width = (obs.shape[0]-arr.shape[0])//2,(obs.shape[1]-arr.shape[1])//2
-#         obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr
-#         #obs.shape:(128,128,3)
-#         return obs
-
-#     def render_origin(self,blocks=[]):
-#         #WARNING:blocks must be exlicitly passed
-#         if self.have_coin:
-#             x, y = self.tocell[self.coin]
-#             blocks.append(self.make_block(x, y, (0, 1, 0)))
-        
-#         arr = super().render(blocks=blocks)
-#         #arr.shape:(104,104,3)
-#         return arr
-
+        self.init_background()
+        arr=self.render()
+        self.block_size=tmp
+        self.obs_height=tmp*self.Row
+        self.obs_width=tmp*self.Col
+        self.init_background()
+        return arr
 # an extension example
 class FourroomsCoinBackgroundNoise(FourroomsCoinNorender):
+    """
+    dynamic background noise
+    """
     def __init__(self, max_epilen=400, obs_size=128,seed=0):
         super(FourroomsCoinBackgroundNoise, self).__init__(max_epilen,seed=seed)
+        self.obs_size = obs_size
         self.obs_height=obs_size
         self.obs_width=obs_size
+        
         self.background = np.zeros((2, obs_size, obs_size, 3),dtype=np.int)
         self.background[0, :, :, 1] = 127  # red background
         self.background[1, :, :, 2] = 127  # blue background
@@ -280,10 +245,87 @@ class FourroomsCoinBackgroundNoise(FourroomsCoinNorender):
         obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr
         return obs
 
+class FourroomsCoinRandomNoise(FourroomsCoinNorender):
+    """
+    Random background noise
+    """
+    def __init__(self, max_epilen=100, obs_size=128, seed=0, num_colors=200, goal=77):
+        super(FourroomsCoinRandomNoise, self).__init__(max_epilen=max_epilen, seed=seed)
+        self.obs_size = obs_size
+        self.obs_height = obs_size
+        self.obs_width = obs_size
+
+        self.num_colors = num_colors
+        self.color = np.random.randint(0, 255, (self.num_colors, 3))
+        self.state_space_capacity = self.observation_space.n
+
+    def render(self, mode=0):
+        obs = np.tile(self.color[np.random.randint(0, self.num_colors)][np.newaxis, np.newaxis, :],
+                      (self.obs_size, self.obs_size, 1))
+
+        arr = super(FourroomsCoinRandomNoise, self).render()
+        padding_height, padding_width = (obs.shape[0] - arr.shape[0]) // 2, (obs.shape[1] - arr.shape[1]) // 2
+        obs[padding_height:padding_height + arr.shape[0], padding_width:padding_width + arr.shape[1], :] = arr
+        return obs.astype(np.uint8)
+
+#random block that appears near the agent,but different from coin/goal/agent/wall
+class FourroomsKidNoise(FourroomsCoinNorender):
+    """
+    FourroomsCoin Game with a kid randomly appearing.
+    """
+    def __init__(self, max_epilen=100, obs_size=128,seed=int(time.time())%1024):
+        super(FourroomsKidNoise, self).__init__(max_epilen,seed=seed)
+        #self.background = np.zeros((2, obs_size, obs_size, 3),dtype=np.int)
+        self.obs_size = obs_size
+        self.obs_height = obs_size
+        self.obs_width = obs_size
+
+        self.background = (np.random.rand(3,obs_size,obs_size,3)*64).astype(np.int)
+        self.background[0, :, :, 1] += 32 # distinguish background
+        self.background[1, :, :, 2] += 32  
+        self.background[1, :, :, 0] += 32  
+        #kid
+        
+
+    def render(self,mode=0):
+        which_background = self.state.position_n % 3
+        obs = deepcopy(self.background[which_background, ...])
+        #add kid
+        avail_states=deepcopy(self.init_states)
+        for k in self.state.coin_dict.keys():
+            if k in avail_states:
+                avail_states.remove(k)
+        kid = np.random.choice(avail_states)
+        x, y = self.tocell[kid]
+        blocks=[]
+        blocks.append(self.make_block(x, y, (0, 0.5, 0.5)))
+        #
+        arr = self.render_coin_blocks(blocks)
+
+        padding_height,padding_width = (obs.shape[0]-arr.shape[0])//2,(obs.shape[1]-arr.shape[1])//2
+        obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr-\
+obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] 
+        #background:[0,16]
+        #obs:[0,255+16]
+
+        new_obs=self.resize_obs(obs).astype(np.uint8)
+        
+        return new_obs
+    def resize_obs(self,obs):
+        """
+        Resize observation array to [0,255]
+        """
+        #input:(obs_size,obs_size,3)
+        minimum=np.min(obs)
+        obs_zero_min=obs-minimum
+        maximum=np.max(obs_zero_min)
+        #-1 to make sure maximum point <255
+        return ((obs_zero_min*255)/maximum)-1
+
 if __name__=='__main__':
 
     #print(FourroomsCoinNorender.__mro__)
-    env=ImageInputWarpper(FourroomsCoinNorender(seed=time.time()))
+    env=ImageInputWarpper(FourroomsCoinNorender(seed=int(time.time())))
     check_render(env)
     check_env(env,warn=True)
     check_run(env)
@@ -291,10 +333,10 @@ if __name__=='__main__':
 
     #stable-baseline test
     env = make_vec_env(lambda: env, n_envs=1)
-    model = ACKTR('CnnPolicy',env, verbose=1)
-    model.learn(total_timesteps=300000)
+    model = DQN('CnnPolicy',env, verbose=1)
+    model.learn(total_timesteps=2000000)
     
-    env=ImageInputWarpper(FourroomsCoinNorender(seed=time.time()))
+    env=ImageInputWarpper(FourroomsCoinNorender(seed=int(time.time())))
     obs = env.reset()
     reward_list=[]
     for i in range(1000):
