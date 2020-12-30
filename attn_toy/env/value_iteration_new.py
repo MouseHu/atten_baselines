@@ -134,6 +134,7 @@ def value_iteration(env, gamma=0.95, buffer_size=2000, filedir=None,showQ=True):
 
     return replay_buffer
 
+
 if __name__=='__main__':
     env=ImageInputWarpper(FourroomsCoinNorender())
     value_iteration(env)

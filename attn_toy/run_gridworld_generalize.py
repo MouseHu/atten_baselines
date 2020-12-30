@@ -109,7 +109,8 @@ def main():
     args = parser.parse_args()
     logger.configure()
     print("seed:", args.seed)
-    replay_buffer = value_iteration(make_gridworld_withcoin(noise_type=0, seed=args.seed)(), gamma=1, filedir="/home/lzy/experiments/attn_"+args.id)
+    
+    # replay_buffer = value_iteration(make_gridworld_withcoin(noise_type=0, seed=args.seed)(), gamma=1, filedir="/home/lzy/experiments/attn_"+args.id)
     # optimal_action = np.argmax(replay_buffer.returns[:replay_buffer.curr_capacity], axis=1)
     env = SubprocVecEnv(
         [make_gridworld_withcoin(noise_type=0, seed=args.seed)
