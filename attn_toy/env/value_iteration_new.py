@@ -8,9 +8,10 @@ from attn_toy.env.fourrooms_coin_norender import FourroomsCoinNorender
 from attn_toy.env.wrappers import ImageInputWarpper
 import cv2
 
-def value_iteration(env, gamma=0.95, buffer_size=2000, filedir=None,showQ=True):
+def value_iteration(env, gamma=0.95, buffer_size=2000, filedir=None,showQ=True,add_batch=False):
     """
-    算出每个obs(state)的Q函数
+    value iteration算出每个obs(state)的Q函数，验证游戏有解
+    add_batch:是否将value_iteration的结果加入buffer
     """
     if filedir is not None:
         filename = os.path.join(filedir, "replay_buffer.pkl")
@@ -113,11 +114,12 @@ def value_iteration(env, gamma=0.95, buffer_size=2000, filedir=None,showQ=True):
 
     replay_buffer = EpisodicMemory(buffer_size, env.observation_space.shape, env.action_space.n,gamma=gamma)
     #pust value_iteration results in replay buffer
-    for s in all_states:
-        s_t=s.to_tuple()
-        for a in range(env.action_space.n):
-            replay_buffer.store(env.render_state(s), a, rewards[s_t][a], dones[s_t][a],Q[s_t][a],\
-                                env.render_state(transition[s_t][a]))
+    if add_batch:
+        for s in all_states:
+            s_t=s.to_tuple()
+            for a in range(env.action_space.n):
+                replay_buffer.store(env.render_state(s), a, rewards[s_t][a], dones[s_t][a],Q[s_t][a],\
+                                    env.render_state(transition[s_t][a]))
     
     print("value iteration finished")
     # print(env.color)
@@ -133,6 +135,7 @@ def value_iteration(env, gamma=0.95, buffer_size=2000, filedir=None,showQ=True):
                 pickle.dump(replay_buffer, file)
 
     return replay_buffer
+
 
 
 if __name__=='__main__':
