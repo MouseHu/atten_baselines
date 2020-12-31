@@ -113,11 +113,11 @@ def main():
     # replay_buffer = value_iteration(make_gridworld_withcoin(noise_type=0, seed=args.seed)(), gamma=1, filedir="/home/lzy/experiments/attn_"+args.id)
     # optimal_action = np.argmax(replay_buffer.returns[:replay_buffer.curr_capacity], axis=1)
     env = SubprocVecEnv(
-        [make_gridworld_withcoin(noise_type=0, seed=args.seed)
+        [make_gridworld_withcoin(noise_type=1, seed=args.seed)
          for _ in range(args.n_env)])
     # env = VecFrameStack(make_atari_env(args.env, args.n_envs, args.seed), 4)
     test_env = SubprocVecEnv(
-        [make_gridworld_withcoin(noise_type=1, seed=args.seed + 1) for _ in range(args.n_env)])
+        [make_gridworld_withcoin(noise_type=2, seed=args.seed + 1) for _ in range(args.n_env)])
     seed_file = os.path.join(os.getenv('OPENAI_LOGDIR'), "seed.txt")
     with open(seed_file, "w") as f:
         f.write(str(args.seed))

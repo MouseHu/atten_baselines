@@ -271,7 +271,7 @@ class FourroomsCoinRandomNoise(FourroomsCoinNorender):
 #random block that appears near the agent,but different from coin/goal/agent/wall
 class FourroomsKidNoise(FourroomsCoinNorender):
     """
-    FourroomsCoin Game with a kid randomly appearing.
+    FourroomsCoin Game with a kid randomly appears.
     """
     def __init__(self, max_epilen=100, obs_size=128,seed=int(time.time())%1024):
         super(FourroomsKidNoise, self).__init__(max_epilen,seed=seed)

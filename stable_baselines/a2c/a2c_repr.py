@@ -159,7 +159,7 @@ class A2CRepr(ActorCriticRLModel):
                 if issubclass(self.policy, RecurrentActorCriticPolicy):
                     n_batch_step = self.n_envs
                     n_batch_train = self.n_envs * self.n_steps
-
+                
                 step_model = self.policy(self.sess, self.observation_space, self.action_space, self.n_envs, 1,
                                          n_batch_step, reuse=False, **self.policy_kwargs)
 
