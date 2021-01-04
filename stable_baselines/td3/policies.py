@@ -51,6 +51,10 @@ class TD3Policy(BasePolicy):
         """
         raise NotImplementedError
 
+    def make_duel_critics(self, obs=None, action=None, reuse=False,
+                          scope="duel_values_fn"):
+        raise NotImplementedError
+
     def step(self, obs, state=None, mask=None):
         """
         Returns the policy for a single step
@@ -109,6 +113,8 @@ class FeedForwardPolicy(TD3Policy):
             layers = [64, 64]
         self.layers = layers
 
+        self.qf1_duel = None
+        self.qf2_duel = None
         assert len(layers) >= 1, "Error: must have at least one hidden layer for the policy."
 
         self.activ_fn = act_fun
@@ -156,6 +162,35 @@ class FeedForwardPolicy(TD3Policy):
 
         return self.qf1, self.qf2
 
+    def make_duel_critics(self, obs=None, action=None, reuse=False, scope="duel_values_fn"):
+        if obs is None:
+            obs = self.processed_obs
+
+        with tf.variable_scope(scope, reuse=reuse):
+            if self.feature_extraction == "cnn":
+                critics_h_duel = self.cnn_extractor(obs, **self.cnn_kwargs)
+            else:
+                critics_h_duel = tf.layers.flatten(obs)
+
+            # Concatenate preprocessed state and action
+            qf_h_duel = tf.concat([critics_h_duel, action], axis=-1)
+
+            # Double Q values to reduce overestimation
+            with tf.variable_scope('qf1', reuse=reuse):
+                qf1_h_duel = mlp(qf_h_duel, action)
+                qf1_duel = tf.layers.dense(qf1_h_duel, 1, name="qf1")
+                # qf1 = tf.layers.dense(qf1_h, 1, name="qf1", activation=tf.nn.relu)
+
+            with tf.variable_scope('qf2', reuse=reuse):
+                qf2_h_duel = mlp(qf_h_duel, action)
+                qf2_duel = tf.layers.dense(qf2_h_duel, 1, name="qf1")
+                # qf2 = tf.layers.dense(qf1_h, 1, name="qf1", activation=tf.nn.relu)
+
+            self.qf1_duel = qf1_duel
+            self.qf2_duel = qf2_duel
+
+        return self.qf1_duel, self.qf2_duel
+
     def step(self, obs, state=None, mask=None):
         return self.sess.run(self.policy, {self.obs_ph: obs})
 
@@ -183,7 +218,7 @@ class TD3LnMlpPolicy(TD3Policy):
                  cnn_extractor=nature_cnn, feature_extraction="mlp",
                  layer_norm=True, act_fun=tf.nn.relu, **kwargs):
         super(TD3LnMlpPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch,
-                                                   reuse=reuse, scale=(feature_extraction == "cnn"))
+                                             reuse=reuse, scale=(feature_extraction == "cnn"))
 
         self._kwargs_check(feature_extraction, kwargs)
         self.layer_norm = layer_norm
@@ -194,10 +229,33 @@ class TD3LnMlpPolicy(TD3Policy):
         if layers is None:
             layers = [400, 300]
         self.layers = layers
-
+        self.qf1_duel = None
+        self.qf2_duel = None
+        self.qfs = []
         assert len(layers) >= 1, "Error: must have at least one hidden layer for the policy."
 
         self.activ_fn = act_fun
+
+    def mlp_td3_large(self, input_tensor, action):
+        """
+        Create a multi-layer fully connected neural network.
+
+        :param input_tensor: (tf.placeholder)
+        :param layers: ([int]) Network architecture
+        :param activ_fn: (tf.function) Activation function
+        :param layer_norm: (bool) Whether to apply layer normalization or not
+        :return: (tf.Tensor)
+        """
+        layers = [400, 500, 600, 300, 400]
+        output = input_tensor
+        for i, layer_size in enumerate(layers):
+            output = tf.layers.dense(output, layer_size, name='fc' + str(i))
+            if i == len(self.layers) - 3:
+                output = tf.concat([output, action], axis=-1)
+            if self.layer_norm:
+                output = tf.contrib.layers.layer_norm(output, center=True, scale=True)
+            output = self.activ_fn(output)
+        return output
 
     def mlp_td3(self, input_tensor, action):
         """
@@ -238,7 +296,6 @@ class TD3LnMlpPolicy(TD3Policy):
     def make_critics(self, obs=None, action=None, reuse=False, scope="values_fn"):
         if obs is None:
             obs = self.processed_obs
-
         with tf.variable_scope(scope, reuse=reuse):
             if self.feature_extraction == "cnn":
                 critics_h = self.cnn_extractor(obs, **self.cnn_kwargs)
@@ -262,8 +319,75 @@ class TD3LnMlpPolicy(TD3Policy):
 
         return self.qf1, self.qf2
 
+    def make_duel_critics(self, obs=None, action=None, reuse=False, scope="duel_values_fn"):
+        if obs is None:
+            obs = self.processed_obs
+
+        with tf.variable_scope(scope, reuse=reuse):
+            if self.feature_extraction == "cnn":
+                critics_h_duel = self.cnn_extractor(obs, **self.cnn_kwargs)
+            else:
+                critics_h_duel = tf.layers.flatten(obs)
+
+            # Concatenate preprocessed state and action
+            qf_h_duel = tf.concat([critics_h_duel, action], axis=-1)
+
+            # Double Q values to reduce overestimation
+            with tf.variable_scope('qf1', reuse=reuse):
+                qf1_h_duel = self.mlp_td3(qf_h_duel, action)
+                qf1_duel = tf.layers.dense(qf1_h_duel, 1, name="qf1")
+                # qf1 = tf.layers.dense(qf1_h, 1, name="qf1", activation=tf.nn.relu)
+
+            with tf.variable_scope('qf2', reuse=reuse):
+                qf2_h_duel = self.mlp_td3(qf_h_duel, action)
+                qf2_duel = tf.layers.dense(qf2_h_duel, 1, name="qf1")
+                # qf2 = tf.layers.dense(qf1_h, 1, name="qf1", activation=tf.nn.relu)
+
+            self.qf1_duel = qf1_duel
+            self.qf2_duel = qf2_duel
+
+        return self.qf1_duel, self.qf2_duel
+
+    def make_many_critics(self, obs=None, action=None, reuse=False, scope="many_values_fn", num_q=2):
+        if obs is None:
+            obs = self.processed_obs
+        self.qfs = []
+        with tf.variable_scope(scope, reuse=reuse):
+            if self.feature_extraction == "cnn":
+                critics_h_many = self.cnn_extractor(obs, **self.cnn_kwargs)
+            else:
+                critics_h_many = tf.layers.flatten(obs)
+
+            # Concatenate preprocessed state and action
+            qf_h_many = tf.concat([critics_h_many, action], axis=-1)
+
+            # Double Q values to reduce overestimation
+            for i in range(num_q):
+                with tf.variable_scope('qf_{}'.format(i), reuse=reuse):
+                    qf_h2 = self.mlp_td3(qf_h_many, action)
+                    qf_many = tf.layers.dense(qf_h2, 1, name='qf_{}'.format(i))
+                    self.qfs.append(qf_many)
+        self.qfs = tf.stack(self.qfs)
+        return self.qfs
+
     def step(self, obs, state=None, mask=None):
         return self.sess.run(self.policy, {self.obs_ph: obs})
+
+
+class TD3LnCnnPolicy(TD3LnMlpPolicy):
+    """
+    Policy object that implements a TD3-like actor critic, using a feed forward neural network.
+
+    """
+
+    def __init__(self, sess, ob_space, ac_space, n_env=1, n_steps=1, n_batch=None, reuse=False, layers=None,
+                 cnn_extractor=nature_cnn, feature_extraction="cnn",
+                 layer_norm=True, act_fun=tf.nn.relu, **kwargs):
+        super(TD3LnCnnPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch,
+                                             reuse=reuse, layers=layers,
+                                             cnn_extractor=cnn_extractor,
+                                             feature_extraction=feature_extraction,
+                                             layer_norm=layer_norm, act_fun=act_fun, **kwargs)
 
 
 class CnnPolicy(FeedForwardPolicy):
@@ -346,4 +470,5 @@ register_policy("CnnPolicy", CnnPolicy)
 register_policy("LnCnnPolicy", LnCnnPolicy)
 register_policy("MlpPolicy", MlpPolicy)
 register_policy("TD3LnMlpPolicy", TD3LnMlpPolicy)
+register_policy("TD3LnCnnPolicy", TD3LnCnnPolicy)
 register_policy("LnMlpPolicy", LnMlpPolicy)

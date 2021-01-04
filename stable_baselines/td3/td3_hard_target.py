@@ -14,7 +14,7 @@ from stable_baselines.td3.policies import TD3Policy
 from collections import deque
 
 
-class TD3(OffPolicyRLModel):
+class TD3HT(OffPolicyRLModel):
     """
     Twin Delayed DDPG (TD3)
     Addressing Function Approximation Error in Actor-Critic Methods.
@@ -65,10 +65,10 @@ class TD3(OffPolicyRLModel):
                  _init_setup_model=True, policy_kwargs=None,
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
 
-        super(TD3, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose,
+        super(TD3HT, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose,
                                   policy_base=TD3Policy, requires_vec_env=False, policy_kwargs=policy_kwargs,
                                   seed=seed, n_cpu_tf_sess=n_cpu_tf_sess)
-        print("TD3 Agent here")
+        print("TD3HT Agent here")
         self.buffer_size = buffer_size
         self.learning_rate = learning_rate
         self.learning_starts = learning_starts
@@ -210,7 +210,7 @@ class TD3(OffPolicyRLModel):
 
                     # Polyak averaging for target variables
                     self.target_ops = [
-                        tf.assign(target, (1 - self.tau) * target + self.tau * source)
+                        tf.assign(target, source)
                         for target, source in zip(target_params, source_params)
                     ]
 
@@ -261,7 +261,7 @@ class TD3(OffPolicyRLModel):
         step_ops = self.step_ops
         if update_policy:
             # Update policy and target networks
-            step_ops = step_ops + [self.policy_train_op, self.target_ops, self.policy_loss]
+            step_ops = step_ops + [self.policy_train_op, self.policy_loss]
 
         # Do one gradient step
         # and optionally compute log for tensorboard
@@ -423,7 +423,8 @@ class TD3(OffPolicyRLModel):
                 #                     eval_obs = self.eval_env.reset()
                 #                 eval_episode_rewards.append(eval_episode_reward)
                 #                 eval_episode_reward = 0.
-
+                if step % 10000 == 0: # hard update
+                    self.sess.run(self.target_ops)
                 episode_rewards[-1] += reward_
                 if done:
                     if self.action_noise is not None:
@@ -459,7 +460,6 @@ class TD3(OffPolicyRLModel):
                     # logger.logkv('q4_mean', safe_mean([x for x in q4s]))
                     logger.logkv('discount_q', discount_episodic_reward)
                     logger.logkv('qs_difference', safe_mean([x for x in qs_buffer]) - discount_episodic_reward)
-                    logger.logkv('abs_qs_difference', safe_mean([abs(x-discount_episodic_reward) for x in qs_buffer]))
                     if len(episode_successes) > 0:
                         logger.logkv("success rate", np.mean(episode_successes[-100:]))
                     if len(infos_values) > 0:

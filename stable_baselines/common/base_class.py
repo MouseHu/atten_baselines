@@ -66,7 +66,7 @@ class BaseRLModel(ABC):
         self.episode_reward_test = None
         self.ep_info_buf = None
         self.ep_info_buf_test = None
-
+        self.eval_ep_info_buf = None
         if env is not None:
             if isinstance(env, str):
                 if self.verbose >= 1:
@@ -231,6 +231,8 @@ class BaseRLModel(ABC):
             self.episode_reward = np.zeros((self.n_envs,))
         if self.ep_info_buf is None:
             self.ep_info_buf = deque(maxlen=100)
+        if self.eval_ep_info_buf is None:
+            self.eval_ep_info_buf = deque(maxlen=100)
 
     def _setup_test(self):
         """

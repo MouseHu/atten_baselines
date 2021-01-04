@@ -4,6 +4,11 @@ import os
 import gc
 import pickle as pkl
 import copy
+from baselines.common.segment_tree import SumSegmentTree, MinSegmentTree
+import random
+from sklearn.manifold.t_sne import TSNE
+import matplotlib.pyplot as plt
+import math
 
 
 def array_min2d(x):
@@ -14,16 +19,22 @@ def array_min2d(x):
 
 
 class EpisodicMemory(object):
-    def __init__(self, buffer_size, state_dim, action_dim, action_shape, obs_shape, gamma=0.99,w_q=0.1):
+    def __init__(self, buffer_size, state_dim, action_dim, action_shape, obs_space, qfs, obs_ph, action_ph, sess,
+                 gamma=0.99,
+                 alpha=0.6):
+        buffer_size = int(buffer_size)
         self.ec_buffer = []
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.capacity = buffer_size
         self.curr_capacity = 0
+        self.pointer = 0
+        self.obs_space = obs_space
 
         self.latent_buffer = np.zeros((buffer_size, state_dim + action_dim))
         self.q_values = -np.inf * np.ones(buffer_size + 1)
-        self.replay_buffer = np.empty((buffer_size,) + obs_shape, np.float32)
+        self.returns = -np.inf * np.ones(buffer_size + 1)
+        self.replay_buffer = np.empty((buffer_size,) + obs_space.shape, np.float32)
         self.action_buffer = np.empty((buffer_size,) + action_shape, np.float32)
         self.reward_buffer = np.empty((buffer_size,), np.float32)
         self.steps = np.empty((buffer_size,), np.int)
@@ -40,25 +51,50 @@ class EpisodicMemory(object):
         self.state_kd_tree = None
         self.build_tree = False
         self.build_tree_times = 0
-        self.w_q = w_q
+        self.min_return = 0
+        self.end_points = []
+        assert alpha > 0
+        self._alpha = alpha
+
+        it_capacity = 1
+        while it_capacity < buffer_size:
+            it_capacity *= 2
+
+        self._it_sum = SumSegmentTree(it_capacity)
+        self._it_min = MinSegmentTree(it_capacity)
+        self._max_priority = 1.0
+
+        self.qfs = qfs
+        self.obs_ph = obs_ph
+        self.action_ph = action_ph
+        self.sess = sess
+
+    def squeeze(self, obses):
+        return np.array([(obs - self.obs_space.low) / (self.obs_space.high - self.obs_space.low) for obs in obses])
+
+    def unsqueeze(self, obses):
+        return np.array([obs * (self.obs_space.high - self.obs_space.low) + self.obs_space.low for obs in obses])
 
     def save(self, filedir):
         pkl.dump(self, open(os.path.join(filedir, "episodic_memory.pkl"), "wb"))
-
-    # def capacity(self):
-    #     return [buffer.curr_capacity for buffer in self.ec_buffer]
 
     def add(self, obs, action, state, encoded_action, sampled_return, next_id=-1):
         if state is not None and encoded_action is not None:
             state, encoded_action = np.squeeze(state), np.squeeze(encoded_action)
             if len(encoded_action.shape) == 0:
                 encoded_action = encoded_action[np.newaxis, ...]
+        index = self.pointer
+        self.pointer = (self.pointer + 1) % self.capacity
         if self.curr_capacity >= self.capacity:
             # find the LRU entry
             # priority = self.w_q *(self.q_values[:self.capacity]) + self.lru
             # priority = self.q_values[:self.capacity]
-            priority = self.lru
-            index = int(np.argmin(priority))
+            # priority = self.lru
+            # index = int(np.argmin(priority))
+            # print("Switching out...")
+
+            if index in self.end_points:
+                self.end_points.remove(index)
             # index = int(np.argmin(self.q_values))
             self.prev_id[index] = []
             self.next_id[index] = -1
@@ -68,13 +104,14 @@ class EpisodicMemory(object):
             self.hashes.pop(old_key, None)
 
         else:
-            index = self.curr_capacity
-            self.curr_capacity += 1
+            # index = self.curr_capacity
+            self.curr_capacity = min(self.capacity,self.curr_capacity+1)
         self.replay_buffer[index] = obs
         self.action_buffer[index] = action
         if state is not None and encoded_action is not None:
             self.latent_buffer[index] = np.concatenate([state, encoded_action])
         self.q_values[index] = sampled_return
+        self.returns[index] = sampled_return
         self.lru[index] = self.time
         new_key = tuple(np.squeeze(np.concatenate([obs, action])).astype('float32'))
         self.hashes[new_key] = index
@@ -82,9 +119,18 @@ class EpisodicMemory(object):
         if next_id >= 0:
             self.next_id[index] = next_id
             if index not in self.prev_id[next_id]:
-                self.prev_id.append(index)
+                self.prev_id[next_id].append(index)
         self.time += 0.01
         return index
+
+    def update_priority(self):
+        priorities = self.q_values[:self.curr_capacity] - np.min(self.q_values[:self.curr_capacity])
+        for idx, priority in enumerate(priorities):
+            priority = max(priority, 1e-6)
+            self._it_sum[idx] = priority ** self._alpha
+            self._it_min[idx] = priority ** self._alpha
+
+            self._max_priority = max(self._max_priority, priority)
 
     def peek(self, action, state, value_decay, modify, next_id=-1, allow_decrease=False, knn=1):
         state = np.squeeze(state)
@@ -126,41 +172,6 @@ class EpisodicMemory(object):
 
             return queried_q_value, None
 
-    # def sample(self, batch_size, num_neg=1):
-    #     capacity = sum([buffer.curr_capacity for buffer in self.ec_buffer])
-    #     assert 0 < batch_size < capacity, "can't sample that much!"
-    #     anchor_idxes = []
-    #     pos_idxes = []
-    #     neg_idxes = []
-    #     loop_count = 0
-    #     while len(anchor_idxes) < batch_size:
-    #         loop_count += 1
-    #         if loop_count > self.curr_capacity * 100:
-    #             return None
-    #         rand_idx = np.random.randint(0, self.curr_capacity)
-    #         if self.next_id[rand_idx] > 0:
-    #             anchor_idxes.append(rand_idx)
-    #             rand_pos = np.random.randint(0, len(self.next_id[rand_idx]))
-    #             pos_idxes.append(self.next_id[rand_idx][rand_pos])
-    #             prev_place = self.prev_id[rand_idx]
-    #             next_place = [self.next_id[rand_idx]]
-    #             neg_action, neg_idx = self.sample_neg_keys(
-    #                 [rand_idx] + prev_place + next_place, num_neg)
-    #             neg_idxes.append(neg_idx)
-    #     neg_idxes = np.array(neg_idxes).reshape(-1)
-    #     # anchor_obses = [self.ec_buffer[action].obses[id] for id, action in zip(anchor_idxes, anchor_actions)]
-    #     # anchor_keys = [self.ec_buffer[action].hashes[id] for id, action in zip(anchor_idxes, anchor_actions)]
-    #     # pos_keys = [self.ec_buffer[action].hashes[id] for id, action in zip(pos_idxes, pos_actions)]
-    #     # neg_keys = [[self.ec_buffer[action].hashes[id] for id, action in zip(neg_idxes[i], neg_actions[i])] for i in
-    #     #             range(len(neg_idxes))]
-    #
-    #     anchor_obs = [self.replay_buffer[ind] for ind in anchor_idxes]
-    #     pos_obs = [self.replay_buffer[ind] for ind in pos_idxes]
-    #     neg_obs = [self.replay_buffer[ind] for ind in neg_idxes]
-    #     anchor_values = [self.q_values[index] for index in anchor_idxes]
-    #     anchor_actions = [self.action_buffer[index] for index in anchor_idxes]
-    #     return anchor_obs, pos_obs, neg_obs, anchor_values, anchor_actions
-
     def sample_neg_keys(self, avoids, batch_size):
         # sample negative keys
         assert batch_size + len(
@@ -172,273 +183,134 @@ class EpisodicMemory(object):
                 places.append(ind)
         return places
 
-    def update(self, idxes, reprs):
+    def update_repr(self, idxes, reprs):
         self.latent_buffer[idxes] = reprs
-
-    def state_knn_max_value(self, state, knn=4):
-        knn = min(self.curr_capacity, knn)
-        state = np.squeeze(state)
-        if len(state.shape) <= 1:
-            state = state[np.newaxis, ...]
-        if not self.build_tree:
-            return -np.inf
-        dist, inds = self.state_kd_tree.query(state, k=knn)
-        inds = inds[0]
-        q_values = [self.q_values[i] for i in inds]
-        return np.max(q_values)
-
-    def state_knn_action(self, state_key, knn):
-        knn = min(self.curr_capacity, knn)
-        if self.curr_capacity < 2000 or self.build_tree == False:
-            return None, None
-        key = np.squeeze(state_key)
-        while len(key.shape) <= 1:
-            key = key[np.newaxis, ...]
-        dist, ind = self.state_kd_tree.query(key, k=knn)
-        ind = ind[0]
-        q_values = self.q_values[ind]
-        # temperature = 0.001
-        # coeff = np.sum(np.square(self.latent_buffer[ind, :self.state_dim] - state_key), axis=1)
-        # coeff = coeff / np.max(coeff)
-        # print(coeff.shape,knn)
-        # coeff = np.exp(-coeff / temperature)
-        # coeff = coeff / np.sum(coeff)
-        # q_values = q_values * coeff
-        ind_max = ind[np.argmax(q_values)]
-        max_action = self.action_buffer[ind_max]
-        max_q = self.q_values[ind_max]
-        return max_action, max_q
-
-    def knn_value(self, state_key, action_key, knn):
-        knn = min(self.curr_capacity, knn)
-        if self.curr_capacity == 0 or self.build_tree == False:
-            return None
-        combined_key = np.concatenate((state_key, action_key), axis=1)
-        key = np.squeeze(combined_key)
-        if len(key.shape) <= 1:
-            key = key[np.newaxis, ...]
-        dist, ind = self.kd_tree.query(key, k=knn)
-        # dist, ind = dist[0], ind[0]
-        # dist = dist / (1e-12 + np.max(dist, axis=1, keepdims=True)) + 1e-13
-        dist = dist + 1e-13
-        # coeff = -np.log(dist)
-        # coeff = np.exp(-dist / 0.1)
-        coeff = 1. / dist ** 2
-        coeff = coeff / np.sum(coeff, axis=1, keepdims=True)
-        # value = 0.0
-        queried_q_value = []
-        # print("here",ind.shape,coeff.shape)
-        for i in range(len(ind)):
-            queried_q_value.append(0.0)
-            for j, index in enumerate(ind[i]):
-                queried_q_value[i] += self.q_values[index] * coeff[i, j]
-                # self.lru[index] = self.time
-                # self.time += 0.01
-
-        return np.array(queried_q_value)[:, np.newaxis]
-
-    def hash_value(self, state, action):
-        if not self.build_tree:
-            return None
-        index = []
-        for i in range(len(state)):
-            key = tuple(np.squeeze(np.concatenate([state[i], action[i]])).astype('float32'))
-            ind = self.hashes.get(key, self.capacity)
-            # if ind == self.capacity:
-            #     print("hash failure in episodic memory",self.curr_capacity)
-            # else:
-            #     print("success hash",self.capacity)
-            index.append(ind)
-        return (self.q_values[index]).reshape(-1)
-
-    def knn(self, state_key, action_key, knn):
-        combined_key = np.concatenate((state_key, action_key), axis=1)
-        knn = min(self.curr_capacity, knn)
-        if self.curr_capacity == 0 or self.build_tree == False:
-            return None
-        key = np.squeeze(combined_key)
-        if len(key.shape) == 1:
-            key = key[np.newaxis, ...]
-        dist, ind = self.kd_tree.query(key, k=knn)
-        # value = 0.0
-        queried_q_values = []
-        queried_obs = []
-        queried_actions = []
-        for i in range(len(ind)):
-            queried_q_values.append([])
-            queried_obs.append([])
-            queried_actions.append([])
-            for j, index in enumerate(ind[0]):
-                queried_q_values[i].append(self.q_values[index])
-                queried_obs[i].append(self.latent_buffer[index, :self.state_dim])
-                queried_actions[i].append(self.latent_buffer[index, self.state_dim:])
-                # self.lru[index] = self.time
-
-        # self.time += 0.01
-
-        return np.array(queried_obs), np.array(queried_actions), np.array(queried_q_values)
-
-    def knn_with_intrinsic(self, state_key, action_key, knn):
-        combined_key = np.concatenate((state_key, action_key), axis=1)
-        knn = min(self.curr_capacity, knn)
-        if self.curr_capacity == 0 or self.build_tree == False:
-            return None
-        key = np.squeeze(combined_key)
-        if len(key.shape) == 1:
-            key = key[np.newaxis, ...]
-        dist, ind = self.kd_tree.query(key, k=knn)
-        # value = 0.0
-        queried_q_values = []
-        queried_obs = []
-        queried_actions = []
-        for i in range(len(ind)):
-            queried_q_values.append([])
-            queried_obs.append([])
-            queried_actions.append([])
-            for j, index in enumerate(ind[0]):
-                queried_q_values[i].append(self.q_values[index])
-                queried_obs[i].append(self.latent_buffer[index, :self.state_dim])
-                queried_actions[i].append(self.latent_buffer[index, self.state_dim:])
-                self.lru[index] = self.time
-
-        self.time += 0.01
-
-        return np.array(queried_obs), np.array(queried_actions), np.array(queried_q_values)
-
-    def update_sequence_horizon(self, sequence, horizen=100):
-        # print(sequence)
-        if self.reward_mean is None:
-            reward_sum = 0
-            for _, _, _, _, r, _, _ in sequence:
-                reward_sum += r
-            self.reward_mean = reward_sum / (len(sequence) - 1)
-        next_id = -1
-        Rtd = 0
-        time_step = 0
-        returns = []
-        for obs, a, z, encoded_a, r, q_tp1, done in reversed(sequence):
-            time_step += 1
-            Rtd = self.gamma * Rtd + r
-            returns.append(Rtd)
-            # if self.gamma == 1:
-            #     corrected_Rtd = Rtd + self.reward_mean * time_step
-            # else:
-            #     corrected_Rtd = Rtd + self.reward_mean * self.gamma * (1 - self.gamma ** time_step) / (1 - self.gamma)
-            if time_step > horizen:
-                corrected_Rtd = Rtd - self.gamma ** horizen * returns[time_step - 100]
-                qd, current_id = self.peek(encoded_a, z, corrected_Rtd, True)
-                if current_id is None:  # new action
-                    current_id = self.add(obs, a, z, encoded_a, corrected_Rtd, next_id)
-
-                self.replay_buffer[current_id] = obs
-                self.reward_buffer[current_id] = r
-            else:
-                current_id = -1
-            next_id = current_id
-        self.reward_mean = np.mean(self.reward_buffer[:self.curr_capacity])
-        return
 
     def update_sequence_corrected(self, sequence):
         # print(sequence)
         next_id = -1
         Rtd = 0
+        # Rtd_soft = [0]
+        # for obs, a, z, encoded_a, r, q_tp1, done in reversed(sequence):
+        #     Rtd_soft.append(self.gamma * Rtd_soft[-1] + r)
+        # Q_soft = np.mean(Rtd_soft) / (1. - (1. - self.gamma ** len(sequence)) / ((1. - self.gamma) * len(sequence)))
+
         for obs, a, z, encoded_a, r, q_tp1, done in reversed(sequence):
             # print(np.mean(z))
-            if done and q_tp1 is None:
-                continue
-            if done and q_tp1 is not None:
-                Rtd = float(np.squeeze(q_tp1))
+            if done:
+                Rtd = q_tp1 if q_tp1 is not None else 0
             else:
                 Rtd = self.gamma * Rtd + r
-
+            # obs = self.squeeze([obs])[0]
             # qd, current_id = self.peek(encoded_a, z, Rtd, True)
             # if current_id is None:  # new action
             current_id = self.add(obs, a, z, encoded_a, Rtd, next_id)
 
             self.replay_buffer[current_id] = obs
             self.reward_buffer[current_id] = r
+            self.done_buffer[current_id] = done
             next_id = int(current_id)
+        self.update_priority()
         return
 
-    def update_sequence_with_critic(self, sequence, q_values):
-        next_id = -1
-        Rtd = 0
-        steps = len(q_values)
-        for q, experience in zip(reversed(q_values), reversed(sequence)):
-            obs, a, z, encoded_a, r, done = experience
-            Rtd = self.gamma * Rtd + r
-            steps -= 1
-            qd, current_id = self.peek(encoded_a, z, q, True)
-            if current_id is None:
-                current_id = self.add(obs, a, z, encoded_a, q, next_id)
+    def compute_approximate_return(self, obses, actions=None):
+        return np.min(np.array(self.sess.run(self.qfs, feed_dict={self.obs_ph: obses})), axis=0)
 
-            self.replay_buffer[current_id] = obs
-            self.reward_buffer[current_id] = r
-            self.done_buffer[current_id] = done
-            # self.ddpg_q_values[current_id] = q
-            self.steps[current_id] = steps
-            next_id = current_id
+    def compute_statistics(self, batch_size=128):
+        estimated_qs = []
+        for i in range(math.ceil(self.curr_capacity / batch_size)):
+            start = i * batch_size
+            end = min((i + 1) * batch_size, self.curr_capacity)
+            obses = self.replay_buffer[start:end]
+            actions = None
+            estimated_qs.append(self.compute_approximate_return(obses, actions).reshape(-1))
+        estimated_qs = np.concatenate(estimated_qs)
+        diff = estimated_qs - self.q_values[:self.curr_capacity]
+        return np.min(diff), np.mean(diff), np.max(diff)
 
-        return
+    def update_return(self, batch_size=128):
 
-    def update_sequence(self, sequence):
+        for i in range(math.ceil(self.curr_capacity / batch_size)):
+            start = i * batch_size
+            end = min((i + 1) * batch_size, self.curr_capacity)
+            index = self.next_id[start:end]
+            protected_index = np.max(0, index)
+            obses = self.replay_buffer[protected_index]
+            actions = self.action_buffer[protected_index]
+            # qs = sess.run(qfs, feed_dict={obs_ph: obses, action_ph: actions})
+            # q_2 = sess.run(qf_2, feed_dict={obs_ph: obses, action_ph: actions})
+            # target_q = np.squeeze(np.min(qs,axis=1))
+
+            target_q = self.reward_buffer[start:end] + self.gamma * (
+                    1 - self.done_buffer[start:end]) * self.compute_approximate_return(obses, actions).reshape(-1)
+            target_q = target_q.reshape(-1)
+
+            assert target_q.shape == self.q_values[start:end].shape, "shape mismatch {} vs {}".format(target_q.shape,
+                                                                                                      self.q_values[
+                                                                                                      start:end].shape)
+            self.q_values[start:end] = np.maximum(target_q, self.q_values[start:end])
+
+    def retrieve_trajectories(self):
+        trajs = []
+        for e in self.end_points:
+            traj = []
+            prev = e
+            while prev is not None:
+                traj.append(prev)
+                try:
+                    prev = self.prev_id[prev][0]
+                    # print(e,prev)
+                except IndexError:
+                    prev = None
+            # print(np.array(traj))
+            trajs.append(np.array(traj))
+        return trajs
+
+    def update_memory(self, q_base=0):
+        np.set_printoptions(threshold=1200)
+        trajs = self.retrieve_trajectories()
+
+        for traj in trajs:
+            # print(np.array(traj))
+            approximate_qs = self.compute_approximate_return(self.replay_buffer[traj], self.action_buffer[traj])
+            approximate_qs = approximate_qs.reshape(-1)
+            assert approximate_qs.shape == traj.shape, "shape mismatch {} vs {}".format(approximate_qs.shape,
+                                                                                        traj.shape)
+            Rtn = 0
+            approximate_qs = np.insert(approximate_qs, 0, 0)
+            for i, s in enumerate(traj):
+                approximate_q = self.reward_buffer[s] + self.gamma * (1 - self.done_buffer[s]) * (
+                        approximate_qs[i] - q_base)
+                Rtn = self.reward_buffer[s] + self.gamma * (1 - self.done_buffer[s]) * Rtn
+                Rtn = max(Rtn, approximate_q)
+                # self.q_values[s] = max(Rtn, approximate_q)
+                self.q_values[s] = max(approximate_q,Rtn)
+                # self.q_values[s] = approximate_q
+                # self.q_values[s] = self.reward_buffer[s] + self.gamma * (1 - self.done_buffer[s]) * (
+                #                 approximate_qs[i] - q_base)
+
+    def update_sequence_with_qs(self, sequence, q_base=0):
         # print(sequence)
         next_id = -1
         Rtd = 0
-        for obs, a, z, encoded_a, r, done in reversed(sequence):
+        for obs, a, z, encoded_a, q_t, r, q_tp1, done in reversed(sequence):
             # print(np.mean(z))
-
-            Rtd = self.gamma * Rtd + r
-
-            qd, current_id = self.peek(encoded_a, z, Rtd, True)
-            if current_id is None:  # new action
-                current_id = self.add(obs, a, z, encoded_a, Rtd, next_id)
-
+            if done:
+                Rtd = q_tp1 - q_base if q_tp1 is not None else r
+            else:
+                # Rtd = max(self.gamma * Rtd + r, q_t - q_base)
+                Rtd = self.gamma * Rtd + r
+            # obs = self.squeeze([obs])[0]
+            # qd, current_id = self.peek(encoded_a, z, Rtd, True)
+            # if current_id is None:  # new action
+            current_id = self.add(obs, a, z, encoded_a, Rtd, next_id)
+            if done:
+                self.end_points.append(current_id)
             self.replay_buffer[current_id] = obs
             self.reward_buffer[current_id] = r
             self.done_buffer[current_id] = done
-
-            next_id = current_id
-        return
-
-    def update_sequence_iterate(self, sequence, knn):
-        # print(sequence)
-        next_id = -1
-
-        delta = np.inf
-        last_value, last_key = None, None
-        while delta > 1e6:
-            Rtd = 0
-            for obs, a, z, encoded_a, r, optimal_encoded_a, done in reversed(sequence):
-                # print(np.mean(z))
-                if done:
-                    last_key = (z, encoded_a, knn)
-                    Rtd = self.knn_value(z, encoded_a, knn=knn)
-
-                    if Rtd is None:
-                        Rtd = 0
-                    else:
-                        Rtd = float(Rtd)
-                    last_value = Rtd
-                    continue
-                else:
-                    Rtd = self.gamma * Rtd + r
-                estimated_Rtd = -np.inf
-                # estimated_Rtd = self.state_knn_max_value(obs, 4)
-                # estimated_Rtd = -np.inf if estimated_Rtd is None else estimated_Rtd
-                Rtd = max(estimated_Rtd, Rtd)
-                qd, current_id = self.peek(encoded_a, z, Rtd, True, allow_decrease=done)
-                if current_id is None:  # new action
-                    current_id = self.add(obs, a, z, encoded_a, Rtd, next_id)
-
-                self.replay_buffer[current_id] = obs
-                self.reward_buffer[current_id] = r
-                next_id = current_id
-
-            self.update_kdtree()
-            Rtd_knn = float(self.knn_value(*last_key))
-            delta = abs(last_value - Rtd_knn)
-            print(delta)
+            next_id = int(current_id)
+        # self.update_priority()
         return
 
     def update_kdtree(self, use_repr=True):
@@ -471,7 +343,7 @@ class EpisodicMemory(object):
                 neg_batch_idxs.append(neg_idx)
                 i += 1
         neg_batch_idxs = np.array(neg_batch_idxs)
-        return self.replay_buffer[neg_batch_idxs]
+        return neg_batch_idxs,self.replay_buffer[neg_batch_idxs]
 
     def switch_first_half(self, obs0, obs1, batch_size):
         tmp = copy.copy(obs0[:batch_size // 2, ...])
@@ -487,6 +359,8 @@ class EpisodicMemory(object):
         batch_idxs_next = []
         while len(batch_idxs) < batch_size:
             rnd_idx = np.random.randint(0, self.curr_capacity)
+            # mass = random.random() * self._it_sum.sum(0, self.curr_capacity)
+            # rnd_idx = self._it_sum.find_prefixsum_idx(mass)
             if self.next_id[rnd_idx] == -1:
                 continue
             batch_idxs.append(rnd_idx)
@@ -498,7 +372,7 @@ class EpisodicMemory(object):
 
         obs0_batch = self.replay_buffer[batch_idxs]
         obs1_batch = self.replay_buffer[batch_idxs_next]
-        obs2_batch = self.sample_negative(batch_size, batch_idxs, batch_idxs_next, batch_idx_pre)
+        batch_idxs_neg,obs2_batch = self.sample_negative(batch_size, batch_idxs, batch_idxs_next, batch_idx_pre)
         action_batch = self.action_buffer[batch_idxs]
         reward_batch = self.reward_buffer[batch_idxs]
         terminal1_batch = self.done_buffer[batch_idxs]
@@ -506,7 +380,12 @@ class EpisodicMemory(object):
 
         if mix:
             obs0_batch, obs1_batch = self.switch_first_half(obs0_batch, obs1_batch, batch_size)
+        # obs0_batch, obs1_batch, obs2_batch = self.unsqueeze(obs0_batch), self.unsqueeze(obs1_batch), self.unsqueeze(
+        #     obs2_batch)
         result = {
+            'index0': array_min2d(batch_idxs),
+            'index1': array_min2d(batch_idxs_next),
+            'index2': array_min2d(batch_idxs_neg),
             'obs0': array_min2d(obs0_batch),
             'obs1': array_min2d(obs1_batch),
             'obs2': array_min2d(obs2_batch),
@@ -516,3 +395,10 @@ class EpisodicMemory(object):
             'return': array_min2d(q_batch),
         }
         return result
+
+    def plot(self):
+        X = self.replay_buffer[:self.curr_capacity]
+        model = TSNE()
+        low_dim_data = model.fit_transform(X)
+        plt.scatter(low_dim_data[:, 0], low_dim_data[:, 1])
+        plt.show()
