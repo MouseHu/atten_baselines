@@ -105,7 +105,7 @@ class EpisodicMemory(object):
 
         else:
             # index = self.curr_capacity
-            self.curr_capacity = min(self.capacity,self.curr_capacity+1)
+            self.curr_capacity = min(self.capacity, self.curr_capacity + 1)
         self.replay_buffer[index] = obs
         self.action_buffer[index] = action
         if state is not None and encoded_action is not None:
@@ -343,7 +343,7 @@ class EpisodicMemory(object):
                 neg_batch_idxs.append(neg_idx)
                 i += 1
         neg_batch_idxs = np.array(neg_batch_idxs)
-        return neg_batch_idxs,self.replay_buffer[neg_batch_idxs]
+        return neg_batch_idxs, self.replay_buffer[neg_batch_idxs]
 
     def switch_first_half(self, obs0, obs1, batch_size):
         tmp = copy.copy(obs0[:batch_size // 2, ...])
@@ -353,7 +353,7 @@ class EpisodicMemory(object):
 
     def sample(self, batch_size, mix=False):
         # Draw such that we always have a proceeding element
-        if self.curr_capacity + 2 < batch_size:
+        if self.curr_capacity < batch_size:
             return None
         batch_idxs = []
         batch_idxs_next = []
@@ -361,10 +361,15 @@ class EpisodicMemory(object):
             rnd_idx = np.random.randint(0, self.curr_capacity)
             # mass = random.random() * self._it_sum.sum(0, self.curr_capacity)
             # rnd_idx = self._it_sum.find_prefixsum_idx(mass)
-            if self.next_id[rnd_idx] == -1:
-                continue
             batch_idxs.append(rnd_idx)
-            batch_idxs_next.append(self.next_id[rnd_idx])
+            if self.next_id[rnd_idx] == -1:
+                # be careful !!!!!! I use random id because in our implementation obs1 is never used
+                if len(self.prev_id[rnd_idx]) > 0:
+                    batch_idxs_next.append(self.prev_id[rnd_idx][0])
+                else:
+                    batch_idxs_next.append(0)
+            else:
+                batch_idxs_next.append(self.next_id[rnd_idx])
 
         batch_idxs = np.array(batch_idxs).astype(np.int)
         batch_idxs_next = np.array(batch_idxs_next).astype(np.int)
@@ -372,7 +377,7 @@ class EpisodicMemory(object):
 
         obs0_batch = self.replay_buffer[batch_idxs]
         obs1_batch = self.replay_buffer[batch_idxs_next]
-        batch_idxs_neg,obs2_batch = self.sample_negative(batch_size, batch_idxs, batch_idxs_next, batch_idx_pre)
+        batch_idxs_neg, obs2_batch = self.sample_negative(batch_size, batch_idxs, batch_idxs_next, batch_idx_pre)
         action_batch = self.action_buffer[batch_idxs]
         reward_batch = self.reward_buffer[batch_idxs]
         terminal1_batch = self.done_buffer[batch_idxs]
