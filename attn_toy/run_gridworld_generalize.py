@@ -8,9 +8,12 @@ from stable_baselines import PPO2, PPO2Repr, logger
 from stable_baselines.common.cmd_util import make_atari_env, atari_arg_parser
 from stable_baselines.common.vec_env import VecFrameStack
 from stable_baselines.common.policies import CnnPolicy, CnnLstmPolicy, CnnLnLstmPolicy, MlpPolicy
-from attn_toy.env.noisy_fourrooms import FourroomsDynamicNoise3, FourroomsDynamicNoise2, FourroomsDynamicNoise, \
-    ImageInputWarpper, FourroomsRandomNoise, FourroomsOptimalNoise, FourroomsMyNoise,FourroomsRandomNoisePos,FourroomsOptimalNoisePos
+from attn_toy.env.noisy_fourrooms import FourroomsDynamicNoise3, FourroomsDynamicNoise2, FourroomsDynamicNoise,ImageInputWarpper, FourroomsRandomNoise, FourroomsOptimalNoise,\
+FourroomsMyNoise,FourroomsRandomNoisePos,FourroomsOptimalNoisePos
 from attn_toy.env.fourrooms_multicoin import FourroomsMultiCoinRandomNoise
+from attn_toy.env.fourrooms_withcoin import FourroomsCoin,FourroomsCoinDynamicNoise,FourroomsCoinNorender,\
+FourroomsCoinDynamicNoiseNorender
+from attn_toy.env.fourrooms_randkid import FourroomsCoinNoiseKidNorender
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from attn_toy.policies.attn_policy import AttentionPolicy
 from attn_toy.value_iteration import value_iteration
@@ -49,7 +52,7 @@ def train(train_env, test_env, finetune_num_timesteps, num_timesteps, policy, nm
                      learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1, repr_coef=repr_coef,
                      use_attention=use_attention,
                      replay_buffer=replay_buffer)
-
+    atten_map_interval=50
     repr_schedule = PiecewiseSchedule([(0, 100), (0.05, 200), (0.1, 300), (0.5, 400), (1, 500)],
                                       outside_value=1)
     for epoch in range(num_timesteps // test_interval):
@@ -57,7 +60,7 @@ def train(train_env, test_env, finetune_num_timesteps, num_timesteps, policy, nm
                     # print_attention_map=epoch % 10 == 0, repr_coef=repr_schedule.value(epoch))
                     print_attention_map=epoch % 10 == 0, repr_coef=0.)
         print(model.num_timesteps)
-        model.eval(print_attention_map=True)
+        model.eval(print_attention_map=((epoch%atten_map_interval)==0))
         print(model.num_timesteps)
         save_path = os.path.join(os.getenv('OPENAI_LOGDIR'), "save")
         if not os.path.isdir(save_path):
@@ -84,6 +87,15 @@ def make_gridworld(noise_type=1, seed=0, env_kwargs={}):
 
     return env_fn
 
+def make_gridworld_withcoin(noise_type=1, seed=0):
+    
+    envs = {1: FourroomsCoinNoiseKidNorender,2:FourroomsCoinDynamicNoiseNorender}
+    env = envs.get(noise_type, FourroomsCoinNorender)
+
+    def env_fn():
+        return ImageInputWarpper(env(seed=seed))
+
+    return env_fn
 
 def main():
     """
@@ -93,6 +105,7 @@ def main():
     parser.add_argument('--policy', help='Policy architecture', choices=['cnn', 'lstm', 'lnlstm', 'mlp', 'attention'],
                         default='attention')
     parser.add_argument('--n_env', help='Policy architecture', type=int, default=8)
+    parser.add_argument('--id', help='experiment id', type=str, default='coin3')
     parser.add_argument('--repr_coef', help='reprenstation loss coefficient', type=float, default=1.)
     parser.add_argument('--use-attention', help='whether or not add attention architecture in network', type=bool,
                         default=True)
@@ -100,7 +113,7 @@ def main():
     args = parser.parse_args()
     logger.configure()
     print("seed:", args.seed)
-    replay_buffer = value_iteration(make_gridworld(noise_type=3, seed=args.seed)(), gamma=1, filedir="/home/hh/attn/")
+    replay_buffer = value_iteration(make_gridworld(noise_type=3, seed=args.seed)(), gamma=1, filedir="/home/lzy/experiments/attn_"+args.id)
     optimal_action = np.argmax(replay_buffer.returns[:replay_buffer.curr_capacity], axis=1)
     env = SubprocVecEnv(
         [make_gridworld(noise_type=9, seed=args.seed, env_kwargs={"goal": 77, "optimal_action": optimal_action})
@@ -109,8 +122,6 @@ def main():
     test_env = SubprocVecEnv(
         [make_gridworld(noise_type=8, seed=args.seed + 1,
                         env_kwargs={"goal": 77}) for _ in range(args.n_env)])
-    # [make_gridworld(noise_type=4, seed=args.seed, optimal_action=optimal_action) for _ in range(args.n_env)])
-    # print(test_env)
     seed_file = os.path.join(os.getenv('OPENAI_LOGDIR'), "seed.txt")
     with open(seed_file, "w") as f:
         f.write(str(args.seed))
@@ -119,6 +130,7 @@ def main():
 
 
 if __name__ == '__main__':
+    
     main()
 
 # disp.stop()
