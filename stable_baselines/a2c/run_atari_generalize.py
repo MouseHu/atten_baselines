@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import os
-from stable_baselines import logger, A2C
+from stable_baselines import logger, A2C,PPO2
 from stable_baselines.a2c.a2c_repr import A2CRepr
 from stable_baselines.common.cmd_util import make_atari, Monitor, wrap_deepmind, set_global_seeds, DummyVecEnv, \
     SubprocVecEnv, atari_arg_parser
@@ -53,8 +53,8 @@ def make_atari_env(env_id, num_env, seed, wrapper_kwargs=None,
                          start_method=start_method)
 
 
-def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, load_path, repr_coef=1.,
-          use_attention=True, save_interval=100000,begin_repr=1.):
+def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, load_path, encoder_coef,repr_coef=1.,
+          use_attention=True, save_interval=100000,learning_rate=2.5e-4,vf_coef=0.5,begin_repr=1.):
     """
     Train A2C model for atari environment, for testing purposes
 
@@ -73,8 +73,10 @@ def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, 
     test_env = VecFrameStack(make_atari_env(env_id, num_env, seed, variation=variation), 4)
 
     if load_path is None:
-        model = A2CRepr(policy_fn, train_env, test_env, lr_schedule=lr_schedule, seed=seed, repr_coef=repr_coef,
+        model = A2CRepr(policy_fn, train_env, test_env,learning_rate=learning_rate,vf_coef=vf_coef,lr_schedule=lr_schedule, 
+        seed=seed, repr_coef=repr_coef,atten_encoder_coef=encoder_coef,
                         verbose=1, use_attention=use_attention)
+
     else:
         model = A2CRepr.load(load_path=load_path)
         model.set_env(test_env)
@@ -87,12 +89,40 @@ def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, 
         save_path = os.path.join(os.getenv('OPENAI_LOGDIR'), "save")
         if not os.path.isdir(save_path):
             os.mkdir(save_path)
-        model.eval(save_interval, print_attention_map=True, filedir=None)
+        model.eval(int(save_interval/10), print_attention_map=True, filedir=None)
         model.save(os.path.join(save_path, "model_{}.pkl".format((epoch + 1) * save_interval)))
     # model.learn(total_timesteps=int(num_timesteps * 1.1))
     train_env.close()
     test_env.close()
 
+def train_ppo2(env_id, num_timesteps, seed, policy, num_env, variation, repr_coef=1.,
+          use_attention=True, save_interval=100000,begin_repr=1.):
+    """
+    Train A2C model for atari environment, for testing purposes
+
+    :param env_id: (str) Environment ID
+    :param num_timesteps: (int) The total number of samples
+    :param seed: (int) The initial seed for training
+    :param policy: (A2CPolicy) The policy model to use (MLP, CNN, LSTM, ...)
+    :param lr_schedule: (str) The type of scheduler for the learning rate update ('linear', 'constant',
+                                 'double_linear_con', 'middle_drop' or 'double_middle_drop')
+    :param num_env: (int) The number of environments
+    """
+    policy_fn = {'cnn': CnnPolicy, 'lstm': CnnLstmPolicy, 'lnlstm': CnnLnLstmPolicy,
+                 'attention': AttentionPolicy}[policy]
+
+    train_env = VecFrameStack(make_atari_env(env_id, num_env, seed, variation="standard"), 4)
+    #test_env = VecFrameStack(make_atari_env(env_id, num_env, seed, variation=variation), 4)
+
+
+    model = PPO2(policy_fn, train_env,seed=seed,verbose=1)
+    epochs = num_timesteps // save_interval
+    for epoch in range(epochs):
+        model.learn(total_timesteps=save_interval, reset_num_timesteps=epoch == 0)
+        print(model.num_timesteps)
+        model.save(os.path.join(save_path, "model_{}.pkl".format((epoch + 1) * save_interval)))
+    # model.learn(total_timesteps=int(num_timesteps * 1.1))
+    train_env.close()
 
 def main():
     """
@@ -104,19 +134,27 @@ def main():
     parser.add_argument('--variation',
                         choices=['standard', 'moving-square', 'constant-rectangle', 'green-lines', 'diagonals'],
                         default='constant-rectangle', help='Env variation')
-    parser.add_argument('--repr_coef', help='reprenstation loss coefficient', type=float, default=1.)
+    parser.add_argument('--repr_coef', help='reprenstation loss coefficient', type=float, default=0.)
     parser.add_argument('--begin_repr', help='reprenstation loss coefficient', type=float, default=0.)
     parser.add_argument('--use-attention', help='if or not to use attention', type=bool, default=True)
 
     parser.add_argument('--lr_schedule', choices=['constant', 'linear'], default='constant',
                         help='Learning rate schedule')
+    parser.add_argument('--vf_coef', default=0.5,type=float,
+                        help='value loss coef')
+    parser.add_argument('--lr', default=2.5e-4,type=float,
+                        help='Learning rate')
+    parser.add_argument('--encoder_coef', default=1./ 2560,type=float,
+                        help='encoder_coef')
     parser.add_argument('--load-path', type=str, default=None,
                         help='Path to load model')
     args = parser.parse_args()
     logger.configure()
+    # train_ppo2(args.env, num_timesteps=args.num_timesteps, seed=args.seed, policy='cnn', \
+    #     num_env=4, variation=args.variation)
     train(args.env, num_timesteps=args.num_timesteps, seed=args.seed, policy=args.policy, lr_schedule=args.lr_schedule,
-          num_env=16, variation=args.variation, repr_coef=args.repr_coef, load_path=args.load_path,
-          use_attention=args.use_attention,begin_repr=args.begin_repr)
+          num_env=16, variation=args.variation, repr_coef=args.repr_coef,learning_rate=args.lr,load_path=args.load_path,
+          use_attention=args.use_attention,begin_repr=args.repr_coef,vf_coef=args.vf_coef,encoder_coef=args.encoder_coef)
 
 
 if __name__ == '__main__':

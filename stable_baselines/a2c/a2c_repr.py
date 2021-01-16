@@ -68,13 +68,19 @@ class A2CRepr(ActorCriticRLModel):
         If None, the number of cpu of the current machine will be used.
     """
 
-    def __init__(self, policy, env, test_env=None, gamma=0.99, n_steps=5, vf_coef=0.25, ent_coef=0.01,
+    def __init__(self, policy, env, test_env=None, gamma=0.99, n_steps=5, vf_coef=0.5, ent_coef=0.01,
                  max_grad_norm=0.5,
-                 learning_rate=7e-4, alpha=0.99, momentum=0.0, epsilon=1e-5, lr_schedule='constant',
-                 repr_coef=1., contra_coef=1., atten_encoder_coef= 5 * 1. / 256, atten_decoder_coef=1.,
+                 learning_rate=2.5e-4, alpha=0.99, momentum=0.0, epsilon=1e-5, lr_schedule='constant',
+                 repr_coef=1., contra_coef=1., atten_encoder_coef= 1. / 2560, atten_decoder_coef=1.,
                  regularize_coef=1e-4, use_attention=True,
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None, c_loss_type="origin",
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
+        print("----parameters------")
+        print("learning rate \t{}".format(learning_rate))
+        print("repr_coef \t{}".format(repr_coef))
+        print("contra_coef \t{}".format(contra_coef))
+        print("atten_encoder_coef \t{}".format(atten_encoder_coef))
+        print("atten_decoder_coef \t{}".format(atten_decoder_coef))
 
         self.n_steps = n_steps
         self.gamma = gamma
@@ -116,8 +122,9 @@ class A2CRepr(ActorCriticRLModel):
         self.num_actions = env.action_space.n
         self._test_runner = None
         self.c_loss_type = c_loss_type
-        self.replay_buffer = EpisodicMemory(capacity=1000000, obs_shape=env.observation_space.shape,
+        self.replay_buffer = EpisodicMemory(capacity=100000, obs_shape=env.observation_space.shape,
                                             num_actions=env.action_space.n)
+        
         self.recon_coef = 0.
         super(A2CRepr, self).__init__(policy=policy, env=env, verbose=verbose, requires_vec_env=True,
                                       _init_setup_model=_init_setup_model, policy_kwargs=policy_kwargs,
@@ -167,6 +174,7 @@ class A2CRepr(ActorCriticRLModel):
                     self.target_actions_ph = step_model.pdtype.sample_placeholder([None], name="action_ph")
                 with tf.variable_scope("train_model", reuse=True,
                                        custom_getter=tf_util.outer_scope_getter("train_model")):
+                    # train_model=positive_model=negative_model=target_model=attention_model=step_model
                     train_model = self.policy(self.sess, self.observation_space, self.action_space, self.n_envs,
                                               self.n_steps, n_batch_train, reuse=True, **self.policy_kwargs)
                     positive_model = self.policy(self.sess, self.observation_space, self.action_space, self.n_envs,
@@ -401,7 +409,7 @@ class A2CRepr(ActorCriticRLModel):
                     # image * 255)
                     recon * 255)
 
-    def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name="A2C",
+    def learn(self, total_timesteps, callback=None, log_interval=500, tb_log_name="A2C",
               reset_num_timesteps=True, begin_eval=False, print_attention_map=True, filedir=None, repr_coef=[1.]):
         print(repr_coef)
         new_tb_log = self._init_num_timesteps(reset_num_timesteps)
@@ -506,7 +514,7 @@ class A2CRepr(ActorCriticRLModel):
             self._test_runner = self._make_test_runner()
         return self._test_runner
 
-    def eval(self, total_timesteps=100000, callback=None, log_interval=10, tb_log_name="A2C",
+    def eval(self, total_timesteps=10000, callback=None, log_interval=500, tb_log_name="A2C",
              print_attention_map=False, filedir=None):
 
         new_tb_log = self._init_num_timesteps(False)
