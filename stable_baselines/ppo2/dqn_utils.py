@@ -761,10 +761,10 @@ def get_true_return(rewards, dones, nenvs=1):
             if done:
                 rtn = 0
                 if not finished:
-                    returns = [np.nan for _ in range(len(returns))]
+                    returns = [-np.inf for _ in range(len(returns))]
                 finished = True
             rtn += r
-            returns.append(rtn)
+            returns.append(rtn/100.)
         mb_returns.append(list(reversed(returns)))
     mb_returns = np.array(mb_returns).reshape(-1)
     return mb_returns

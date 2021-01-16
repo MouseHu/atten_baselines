@@ -66,7 +66,7 @@ class BaseRLModel(ABC):
         self.episode_reward_test = None
         self.ep_info_buf = None
         self.ep_info_buf_test = None
-
+        self.eval_ep_info_buf = None
         if env is not None:
             if isinstance(env, str):
                 if self.verbose >= 1:
@@ -231,6 +231,8 @@ class BaseRLModel(ABC):
             self.episode_reward = np.zeros((self.n_envs,))
         if self.ep_info_buf is None:
             self.ep_info_buf = deque(maxlen=100)
+        if self.eval_ep_info_buf is None:
+            self.eval_ep_info_buf = deque(maxlen=100)
 
     def _setup_test(self):
         """
@@ -843,6 +845,26 @@ class ActorCriticRLModel(BaseRLModel):
             clipped_actions = clipped_actions[0]
 
         return clipped_actions, states
+
+    @staticmethod
+    def emb_dist(emb1, emb2):
+        return tf.maximum(0., tf.reduce_sum(tf.square(emb1 - emb2), axis=1))
+
+    def contrastive_loss_fc(self, emb_cur, emb_next, emb_neq, margin=1., c_type='origin'):
+        if c_type is None or c_type == 'origin':
+            return tf.reduce_mean(
+                tf.maximum(
+                    tf.sqrt(self.emb_dist(emb_cur, emb_neq)) - 2 * tf.sqrt(self.emb_dist(emb_cur, emb_next)) + margin,
+                    0))
+        elif c_type == 'sqmargin':
+            return tf.reduce_mean(self.emb_dist(emb_cur, emb_next) +
+                                  tf.maximum(0.,
+                                             margin - self.emb_dist(emb_cur, emb_neq)))
+        else:
+            return tf.reduce_mean(self.emb_dist(emb_cur, emb_next) + tf.square(tf.maximum(0., margin -
+                                                                                          tf.math.sqrt(
+                                                                                              self.emb_dist(emb_cur,
+                                                                                                            emb_neq)))))
 
     def action_probability(self, observation, state=None, mask=None, actions=None, logp=False):
         if state is None:

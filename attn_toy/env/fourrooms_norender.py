@@ -5,7 +5,7 @@ from gym import error, spaces
 from gym import core, spaces
 from gym.envs.registration import register
 import random
-from attn_toy.env.rendering import *
+# from attn_toy.env.rendering import *
 from copy import copy
 
 

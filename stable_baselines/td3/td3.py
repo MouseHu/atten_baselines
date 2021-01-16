@@ -7,10 +7,11 @@ import tensorflow as tf
 from stable_baselines import logger
 from stable_baselines.common import tf_util, OffPolicyRLModel, SetVerbosity, TensorboardWriter
 from stable_baselines.common.vec_env import VecEnv
-from stable_baselines.common.math_util import safe_mean, unscale_action, scale_action
+from stable_baselines.common.math_util import safe_mean, unscale_action, scale_action, reward2return
 from stable_baselines.common.schedules import get_schedule_fn
 from stable_baselines.common.buffers import ReplayBuffer
 from stable_baselines.td3.policies import TD3Policy
+from collections import deque
 
 
 class TD3(OffPolicyRLModel):
@@ -55,9 +56,11 @@ class TD3(OffPolicyRLModel):
     :param n_cpu_tf_sess: (int) The number of threads for TensorFlow operations
         If None, the number of cpu of the current machine will be used.
     """
-    def __init__(self, policy, env, gamma=0.99, learning_rate=3e-4, buffer_size=50000,
+
+    def __init__(self, policy, env, eval_env, gamma=0.99, learning_rate=3e-4, buffer_size=50000,
                  learning_starts=100, train_freq=100, gradient_steps=100, batch_size=128,
                  tau=0.005, policy_delay=2, action_noise=None,
+                 nb_eval_steps=1000,
                  target_policy_noise=0.2, target_noise_clip=0.5,
                  random_exploration=0.0, verbose=0, tensorboard_log=None,
                  _init_setup_model=True, policy_kwargs=None,
@@ -80,7 +83,8 @@ class TD3(OffPolicyRLModel):
         self.policy_delay = policy_delay
         self.target_noise_clip = target_noise_clip
         self.target_policy_noise = target_policy_noise
-
+        self.eval_env = eval_env
+        self.nb_eval_steps = nb_eval_steps
         self.graph = None
         self.replay_buffer = None
         self.sess = None
@@ -153,6 +157,7 @@ class TD3(OffPolicyRLModel):
                     self.policy_out = policy_out = self.policy_tf.make_actor(self.processed_obs_ph)
                     # Use two Q-functions to improve performance by reducing overestimation bias
                     qf1, qf2 = self.policy_tf.make_critics(self.processed_obs_ph, self.actions_ph)
+                    self.qf1, self.qf2 = qf1, qf2
                     # Q value when following the current policy
                     qf1_pi, _ = self.policy_tf.make_critics(self.processed_obs_ph,
                                                             policy_out, reuse=True)
@@ -192,7 +197,8 @@ class TD3(OffPolicyRLModel):
                     # will be called only every n training steps,
                     # where n is the policy delay
                     policy_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph)
-                    policy_train_op = policy_optimizer.minimize(policy_loss, var_list=tf_util.get_trainable_vars('model/pi'))
+                    policy_train_op = policy_optimizer.minimize(policy_loss,
+                                                                var_list=tf_util.get_trainable_vars('model/pi'))
                     self.policy_train_op = policy_train_op
 
                     # Q Values optimizer
@@ -272,7 +278,7 @@ class TD3(OffPolicyRLModel):
 
         return qf1_loss, qf2_loss
 
-    def learn(self, total_timesteps, callback=None,
+    def learn(self, total_timesteps, callback=None, eval_interval=10000,
               log_interval=4, tb_log_name="TD3", reset_num_timesteps=True, replay_wrapper=None):
 
         new_tb_log = self._init_num_timesteps(reset_num_timesteps)
@@ -293,6 +299,9 @@ class TD3(OffPolicyRLModel):
 
             start_time = time.time()
             episode_rewards = [0.0]
+            discount_episodic_reward = 0.
+            current_steps = 0
+            qs_buffer = deque(maxlen=1000)
             episode_successes = []
             if self.action_noise is not None:
                 self.action_noise.reset()
@@ -328,6 +337,8 @@ class TD3(OffPolicyRLModel):
                 assert action.shape == self.env.action_space.shape
 
                 new_obs, reward, done, info = self.env.step(unscaled_action)
+                truly_done = info.get("truly_done", done)
+                # for fair comparison, add truly done to td3
 
                 self.num_timesteps += 1
 
@@ -345,8 +356,15 @@ class TD3(OffPolicyRLModel):
                     # Avoid changing the original ones
                     obs_, new_obs_, reward_ = obs, new_obs, reward
 
+                q1, q2 = self.sess.run([self.qf1, self.qf2],
+                                       feed_dict={self.processed_obs_ph: obs[None], self.actions_ph: [action]})
+                q = np.squeeze(np.minimum(q1, q2))
+                qs_buffer.extend([q])
+                # discount_episodic_reward = reward_ + self.gamma * discount_episodic_reward
+                discount_episodic_reward += reward_ * (self.gamma ** current_steps)
+                current_steps += 1
                 # Store transition in the replay buffer.
-                self.replay_buffer_add(obs_, action, reward_, new_obs_, done, info)
+                self.replay_buffer_add(obs_, action, reward_, new_obs_, truly_done, info)
                 obs = new_obs
                 # Save the unnormalized observation
                 if self._vec_normalize_env is not None:
@@ -391,26 +409,68 @@ class TD3(OffPolicyRLModel):
 
                     callback.on_rollout_start()
 
-                # if step % eval_interval == 0:
-                #     # Evaluate.
-                #     eval_episode_rewards = []
-                #     eval_qs = []
-                #     if self.eval_env is not None:
-                #         eval_episode_reward = 0.
-                #         for _ in range(self.nb_eval_steps):
-                #             if step >= total_timesteps:
-                #                 return self
-                #
-                #             eval_action = self.policy_tf.step(obs[None]).flatten()
-                #             unscaled_action = unscale_action(self.action_space, eval_action)
-                #             eval_obs, eval_r, eval_done, _ = self.eval_env.step(unscaled_action)
-                #             eval_episode_reward += eval_r
-                #
-                #             if eval_done:
-                #                 if not isinstance(self.env, VecEnv):
-                #                     eval_obs = self.eval_env.reset()
-                #                 eval_episode_rewards.append(eval_episode_reward)
-                #                 eval_episode_reward = 0.
+                if step % eval_interval == 0:
+                    # Evaluate.
+                    eval_episode_rewards = []
+                    eval_discount_episode_rewards = []
+                    eval_step = 0
+
+                    if self.eval_env is not None:
+                        eval_episode_reward = 0.
+                        eval_discount_episode_reward = 0.
+                        eval_obs = self.eval_env.reset()
+                        eval_q = []
+                        eval_return = []
+                        for _ in range(self.nb_eval_steps):
+                            if step >= total_timesteps:
+                                return self
+
+                            eval_action = self.policy_tf.step(eval_obs[None]).flatten()
+                            unscaled_action = unscale_action(self.action_space, eval_action)
+                            eval_obs, eval_r, eval_done, eval_info = self.eval_env.step(unscaled_action)
+                            eval_episode_reward += eval_r
+                            eval_discount_episode_reward += eval_r * self.gamma ** eval_step
+                            eval_return.append(eval_r)
+                            qs = self.sess.run([self.qf1,self.qf2],
+                                               feed_dict={self.observations_ph: eval_obs[None],
+                                                          self.actions_ph: [action]})
+                            q = np.min(qs).item()
+                            eval_q.append(q)
+                            # Retrieve reward and episode length if using Monitor wrapper
+                            eval_maybe_ep_info = eval_info.get('episode')
+                            if eval_maybe_ep_info is not None:
+                                self.eval_ep_info_buf.extend([eval_maybe_ep_info])
+                            eval_step += 1
+                            if eval_done:
+                                eval_return = reward2return(eval_return)
+                                if not isinstance(self.env, VecEnv):
+                                    eval_obs = self.eval_env.reset()
+                                eval_episode_rewards.append(eval_episode_reward)
+                                eval_discount_episode_rewards.append(eval_discount_episode_reward)
+                                eval_episode_reward = 0.
+                                eval_discount_episode_reward = 0.
+                                eval_step = 0.
+                                eval_return = []
+                                eval_q = []
+                        if len(eval_episode_rewards[-101:-1]) == 0:
+                            eval_mean_reward = -np.inf
+                        else:
+                            eval_mean_reward = round(float(np.mean(eval_episode_rewards[-101:-1])), 1)
+
+                        logger.logkv("eval mean 100 episode reward", eval_mean_reward)
+                        if len(self.ep_info_buf) > 0 and len(self.ep_info_buf[0]) > 0:
+                            logger.logkv('eval_ep_rewmean',
+                                         safe_mean([ep_info['r'] for ep_info in self.eval_ep_info_buf]))
+                            logger.logkv('eval_eplenmean',
+                                         safe_mean([ep_info['l'] for ep_info in self.eval_ep_info_buf]))
+                        logger.logkv('eval_time_elapsed', int(time.time() - start_time))
+                        logger.logkv('eval_discount_q', np.mean(eval_discount_episode_rewards))
+                        logger.logkv('eval_qs', np.mean(eval_q))
+                        logger.logkv('eval_qs_difference',
+                                     safe_mean([x - y for x, y in zip(eval_q, eval_return)]))
+                        logger.logkv('eval_abs_qs_difference',
+                                     safe_mean([abs(x - y) for x, y in zip(eval_q, eval_return)]))
+                        logger.dumpkvs()
 
                 episode_rewards[-1] += reward_
                 if done:
@@ -429,7 +489,6 @@ class TD3(OffPolicyRLModel):
                 else:
                     mean_reward = round(float(np.mean(episode_rewards[-101:-1])), 1)
 
-
                 # substract 1 as we appended a new term just now
                 num_episodes = len(episode_rewards) - 1
                 # Display training infos
@@ -444,6 +503,11 @@ class TD3(OffPolicyRLModel):
                     logger.logkv("current_lr", current_lr)
                     logger.logkv("fps", fps)
                     logger.logkv('time_elapsed', int(time.time() - start_time))
+                    logger.logkv('qs_mean', safe_mean([x for x in qs_buffer]))
+                    # logger.logkv('q4_mean', safe_mean([x for x in q4s]))
+                    logger.logkv('discount_q', discount_episodic_reward)
+                    logger.logkv('qs_difference', safe_mean([x for x in qs_buffer]) - discount_episodic_reward)
+                    logger.logkv('abs_qs_difference', safe_mean([abs(x - discount_episodic_reward) for x in qs_buffer]))
                     if len(episode_successes) > 0:
                         logger.logkv("success rate", np.mean(episode_successes[-100:]))
                     if len(infos_values) > 0:
@@ -452,6 +516,9 @@ class TD3(OffPolicyRLModel):
                     logger.logkv("total timesteps", self.num_timesteps)
                     logger.dumpkvs()
                     # Reset infos:
+                    qs_buffer.clear()
+                    discount_episodic_reward = 0.
+                    current_steps = 0
                     infos_values = []
 
             callback.on_training_end()

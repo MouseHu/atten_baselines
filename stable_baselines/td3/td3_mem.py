@@ -12,6 +12,7 @@ from stable_baselines.common.schedules import get_schedule_fn
 from stable_baselines.common.buffers import ReplayBuffer
 from stable_baselines.td3.policies import TD3Policy
 from stable_baselines.td3.episodic_memory import EpisodicMemory
+from collections import deque
 
 
 class TD3Mem(OffPolicyRLModel):
@@ -57,11 +58,12 @@ class TD3Mem(OffPolicyRLModel):
         If None, the number of cpu of the current machine will be used.
     """
 
-    def __init__(self, policy, env, gamma=0.99, learning_rate=3e-4,
+    def __init__(self, policy, env, eval_env, gamma=0.99, learning_rate=3e-4,
                  buffer_size=50000,
-                 learning_starts=100, train_freq=100, gradient_steps=100, batch_size=128,
+                 learning_starts=100, train_freq=100, gradient_steps=400, batch_size=128,
                  tau=0.005, policy_delay=2, action_noise=None,
-                 target_policy_noise=0.2, target_noise_clip=0.5,
+                 nb_eval_steps=1000,
+                 target_policy_noise=0.2, target_noise_clip=0.5, start_policy_learning=10000,
                  random_exploration=0.0, verbose=0, tensorboard_log=None,
                  _init_setup_model=True, policy_kwargs=None,
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
@@ -79,12 +81,14 @@ class TD3Mem(OffPolicyRLModel):
         self.tau = tau
         self.gradient_steps = gradient_steps
         self.gamma = gamma
+        self.start_policy_learning = start_policy_learning
         self.action_noise = action_noise
         self.random_exploration = random_exploration
         self.policy_delay = policy_delay
         self.target_noise_clip = target_noise_clip
         self.target_policy_noise = target_policy_noise
-
+        self.eval_env = eval_env
+        self.nb_eval_steps = nb_eval_steps
         self.graph = None
         self.replay_buffer = None
         self.sess = None
@@ -118,7 +122,14 @@ class TD3Mem(OffPolicyRLModel):
         # self.state_repr_func = state_repr_func
         # self.action_repr_func = action_repr_func
         self.qf1_pi = None
+        self.qf2_pi = None
+
         self.qf1_target = None
+        self.qf2_target = None
+        self.qf1_target_no_pi = None
+        self.qf2_target_no_pi = None
+
+        self.qvalues_ph = None
 
         self.state_repr_t = None
         self.action_repr_t = None
@@ -133,6 +144,7 @@ class TD3Mem(OffPolicyRLModel):
         return policy.obs_ph, self.actions_ph, policy_out
 
     def setup_model(self):
+        # print("setup model ",self.observation_space.shape)
         with SetVerbosity(self.verbose):
             self.graph = tf.Graph()
             with self.graph.as_default():
@@ -140,9 +152,6 @@ class TD3Mem(OffPolicyRLModel):
                 self.sess = tf_util.make_session(num_cpu=self.n_cpu_tf_sess, graph=self.graph)
 
                 self.replay_buffer = ReplayBuffer(self.buffer_size)
-                self.memory = EpisodicMemory(self.buffer_size, state_dim=1, action_dim=1,
-                                             obs_shape=self.observation_space.shape,
-                                             action_shape=self.action_space.shape)
 
                 with tf.variable_scope("input", reuse=False):
                     # Create policy and target TF objects
@@ -171,10 +180,15 @@ class TD3Mem(OffPolicyRLModel):
                     self.policy_out = policy_out = self.policy_tf.make_actor(self.processed_obs_ph)
                     # Use two Q-functions to improve performance by reducing overestimation bias
                     qf1, qf2 = self.policy_tf.make_critics(self.processed_obs_ph, self.actions_ph)
+                    # qf3, qf4 = self.policy_tf.make_duel_critics(self.processed_obs_ph, self.actions_ph,
+                    #                                        scope="buffer_values_fn")
                     # Q value when following the current policy
-                    qf1_pi, _ = self.policy_tf.make_critics(self.processed_obs_ph,
-                                                            policy_out, reuse=True)
+                    qf1_pi, qf2_pi = self.policy_tf.make_critics(self.processed_obs_ph,
+                                                                 policy_out, reuse=True)
+                    # self.qf1 = qf1
+                    # self.qf2 = qf2
                     self.qf1_pi = qf1_pi
+                    self.qf2_pi = qf2_pi
 
                 with tf.variable_scope("target", reuse=False):
                     # Create target networks
@@ -188,21 +202,29 @@ class TD3Mem(OffPolicyRLModel):
                     qf1_target, qf2_target = self.target_policy_tf.make_critics(self.processed_next_obs_ph,
                                                                                 noisy_target_action)
                     self.qf1_target = qf1_target
+                    self.qf2_target = qf2_target
+                    self.qf1_target_no_pi, self.qf2_target_no_pi = self.target_policy_tf.make_critics(
+                        self.processed_obs_ph, self.actions_ph, reuse=True)
 
                 with tf.variable_scope("loss", reuse=False):
                     # Take the min of the two target Q-Values (clipped Double-Q Learning)
-                    # min_qf_target = tf.minimum(qf1_target, qf2_target)
-                    #
-                    # # Targets for Q value regression
-                    # q_backup = tf.stop_gradient(
-                    #     self.rewards_ph +
-                    #     (1 - self.terminals_ph) * self.gamma * min_qf_target
-                    # )
+                    min_qf_target = tf.minimum(qf1_target, qf2_target)
+
+                    # Targets for Q value regression
+                    q_backup = tf.stop_gradient(
+                        self.rewards_ph +
+                        (1 - self.terminals_ph) * self.gamma * min_qf_target
+                    )
 
                     # Compute Q-Function loss
-                    qf1_loss = tf.reduce_mean((self.qvalues_ph - qf1) ** 2)
-                    qf2_loss = tf.reduce_mean((self.qvalues_ph - qf2) ** 2)
+                    qf1_loss = tf.reduce_mean((tf.maximum(self.qvalues_ph, q_backup) - qf1) ** 2)
+                    qf2_loss = tf.reduce_mean((tf.maximum(self.qvalues_ph, q_backup) - qf2) ** 2)
 
+                    # qf1_loss = tf.reduce_mean((q_backup - qf1) ** 2) + tf.reduce_mean((self.qvalues_ph - qf1) ** 2)
+                    # qf2_loss = tf.reduce_mean((q_backup - qf2) ** 2) + tf.reduce_mean((self.qvalues_ph - qf2) ** 2)
+
+                    # qf1_loss = tf.reduce_mean((q_backup - qf1) ** 2)
+                    # qf2_loss = tf.reduce_mean((q_backup - qf2) ** 2)
                     qvalues_losses = qf1_loss + qf2_loss
 
                     # Policy loss: maximise q value
@@ -219,7 +241,6 @@ class TD3Mem(OffPolicyRLModel):
                     # Q Values optimizer
                     qvalues_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph)
                     qvalues_params = tf_util.get_trainable_vars('model/values_fn/')
-
                     # Q Values and policy target params
                     source_params = tf_util.get_trainable_vars("model/")
                     target_params = tf_util.get_trainable_vars("target/")
@@ -243,7 +264,7 @@ class TD3Mem(OffPolicyRLModel):
                     self.step_ops = [qf1_loss, qf2_loss,
                                      qf1, qf2, train_values_op]
 
-                    # Monitor losses and entropy in tensorboard
+                    # Monitor losses and entropy in  tensorboard
                     tf.summary.scalar('policy_loss', policy_loss)
                     tf.summary.scalar('qf1_loss', qf1_loss)
                     tf.summary.scalar('qf2_loss', qf2_loss)
@@ -260,14 +281,22 @@ class TD3Mem(OffPolicyRLModel):
 
                 self.summary = tf.summary.merge_all()
 
+                self.memory = EpisodicMemory(int(1e6), state_dim=1, action_dim=1,
+                                             obs_space=self.observation_space,
+                                             action_shape=self.action_space.shape,
+                                             qfs=None, obs_ph=self.policy_tf.processed_obs,
+                                             action_ph=self.actions_ph, sess=self.sess)
+
     def _train_step(self, step, writer, learning_rate, update_policy):
         # Sample a batch from the replay buffer
         # batch = self.replay_buffer.sample(self.batch_size, env=self._vec_normalize_env)
         batch = self.memory.sample(self.batch_size, mix=False)
         if batch is None:
-            return 0, 0
+            return 0, 0, 0, 0
         batch_obs, batch_actions, batch_rewards, batch_next_obs, batch_dones, batch_returns = batch['obs0'], batch[
             'actions'], batch['rewards'], batch['obs1'], batch['terminals1'], batch['return']
+        # batch = self.replay_buffer.sample(self.batch_size, env=self._vec_normalize_env)
+        # batch_obs, batch_actions, batch_rewards, batch_next_obs, batch_dones = batch
         feed_dict = {
             self.observations_ph: batch_obs,
             self.actions_ph: batch_actions,
@@ -276,8 +305,9 @@ class TD3Mem(OffPolicyRLModel):
             self.terminals_ph: batch_dones.reshape(self.batch_size, -1),
             self.learning_rate_ph: learning_rate,
             self.qvalues_ph: batch_returns.reshape(self.batch_size, -1)
+            # self.qvalues_ph: np.ones((self.batch_size, 1))
         }
-
+        # print("training ",batch_obs.shape)
         step_ops = self.step_ops
         if update_policy:
             # Update policy and target networks
@@ -293,11 +323,11 @@ class TD3Mem(OffPolicyRLModel):
             out = self.sess.run(step_ops, feed_dict)
 
         # Unpack to monitor losses
-        qf1_loss, qf2_loss, *_values = out
+        qf1_loss, qf2_loss, qf3_loss, qf4_loss, *_values = out
 
-        return qf1_loss, qf2_loss
+        return qf1_loss, qf2_loss, qf3_loss, qf4_loss
 
-    def learn(self, total_timesteps, callback=None,
+    def learn(self, total_timesteps, eval_interval=10000, update_interval=10000, callback=None,
               log_interval=4, tb_log_name="TD3", reset_num_timesteps=True, replay_wrapper=None):
 
         new_tb_log = self._init_num_timesteps(reset_num_timesteps)
@@ -315,7 +345,7 @@ class TD3Mem(OffPolicyRLModel):
             self.learning_rate = get_schedule_fn(self.learning_rate)
             # Initial learning rate
             current_lr = self.learning_rate(1)
-
+            qs_buffer = deque(maxlen=1000)
             start_time = time.time()
             episode_rewards = [0.0]
             episode_successes = []
@@ -327,6 +357,7 @@ class TD3Mem(OffPolicyRLModel):
                 obs_ = self._vec_normalize_env.get_original_obs().squeeze()
             n_updates = 0
             infos_values = []
+            discount_episodic_reward = 0.
 
             callback.on_training_start(locals(), globals())
             callback.on_rollout_start()
@@ -369,9 +400,16 @@ class TD3Mem(OffPolicyRLModel):
                     # Avoid changing the original ones
                     obs_, new_obs_, reward_ = obs, new_obs, reward
 
+                q1, q2 = self.sess.run([self.qf1_target_no_pi, self.qf2_target_no_pi],
+                                       feed_dict={self.processed_obs_ph: obs[None], self.actions_ph: [action]})
+                q = np.squeeze(np.minimum(q1, q2))
+                qs_buffer.extend([q])
+                discount_episodic_reward = reward_ + self.gamma * discount_episodic_reward
+
                 # Store transition in the replay buffer.
                 self.replay_buffer_add(obs_, action, reward_, new_obs_, done, info)
                 self.sequence.append((obs_, action, self.state_repr_t, self.action_repr_t, reward_, None, False))
+
                 truly_done = info.get('truly_done', True)
                 if done:
                     # action, q = self.pi(obs1, apply_noise=False, compute_Q=True)
@@ -379,11 +417,14 @@ class TD3Mem(OffPolicyRLModel):
                         self.sequence.append(
                             (new_obs_, action, self.state_repr_t, self.action_repr_t, 0, 0, done))
                     else:
-                        q = self.sess.run(self.qf1_target, feed_dict={self.observations_ph: [new_obs_]})
+                        q1, q2 = self.sess.run([self.qf1_target, self.qf2_target],
+                                               feed_dict={self.processed_next_obs_ph: new_obs[None]})
+                        q = np.minimum(q1, q2)
                         self.sequence.append(
                             (new_obs_, action, self.state_repr_t, self.action_repr_t, 0, np.squeeze(q), done))
                     # self.episodic_memory.update_sequence_iterate(self.sequence, self.k)
                     self.memory.update_sequence_corrected(self.sequence)
+                    # self.memory.update_sequence_corrected(self.sequence)
                     self.sequence = []
 
                 obs = new_obs
@@ -421,8 +462,10 @@ class TD3Mem(OffPolicyRLModel):
                         # Update policy and critics (q functions)
                         # Note: the policy is updated less frequently than the Q functions
                         # this is controlled by the `policy_delay` parameter
+                        # if_train_policy = (step > self.start_policy_learning) and \
+                        if_train_policy = ((step + grad_step) % self.policy_delay == 0)
                         mb_infos_vals.append(
-                            self._train_step(step, writer, current_lr, (step + grad_step) % self.policy_delay == 0))
+                            self._train_step(step, writer, current_lr, if_train_policy))
 
                     # Log losses and entropy, useful for monitor training
                     if len(mb_infos_vals) > 0:
@@ -430,26 +473,45 @@ class TD3Mem(OffPolicyRLModel):
 
                     callback.on_rollout_start()
 
-                # if step % eval_interval == 0:
-                #     # Evaluate.
-                #     eval_episode_rewards = []
-                #     eval_qs = []
-                #     if self.eval_env is not None:
-                #         eval_episode_reward = 0.
-                #         for _ in range(self.nb_eval_steps):
-                #             if step >= total_timesteps:
-                #                 return self
-                #
-                #             eval_action = self.policy_tf.step(obs[None]).flatten()
-                #             unscaled_action = unscale_action(self.action_space, eval_action)
-                #             eval_obs, eval_r, eval_done, _ = self.eval_env.step(unscaled_action)
-                #             eval_episode_reward += eval_r
-                #
-                #             if eval_done:
-                #                 if not isinstance(self.env, VecEnv):
-                #                     eval_obs = self.eval_env.reset()
-                #                 eval_episode_rewards.append(eval_episode_reward)
-                #                 eval_episode_reward = 0.
+                if step % eval_interval == 0:
+                    # Evaluate.
+                    eval_episode_rewards = []
+                    eval_qs = []
+                    if self.eval_env is not None:
+                        eval_episode_reward = 0.
+                        for _ in range(self.nb_eval_steps):
+                            if step >= total_timesteps:
+                                return self
+
+                            eval_action = self.policy_tf.step(obs[None]).flatten()
+                            # eval_action = self.non_param_policy(obs[None]).flatten()
+                            unscaled_action = unscale_action(self.action_space, eval_action)
+                            eval_obs, eval_r, eval_done, eval_info = self.eval_env.step(unscaled_action)
+                            eval_episode_reward += eval_r
+
+                            # Retrieve reward and episode length if using Monitor wrapper
+                            eval_maybe_ep_info = eval_info.get('episode')
+                            if eval_maybe_ep_info is not None:
+                                self.eval_ep_info_buf.extend([eval_maybe_ep_info])
+
+                            if eval_done:
+                                if not isinstance(self.env, VecEnv):
+                                    eval_obs = self.eval_env.reset()
+                                eval_episode_rewards.append(eval_episode_reward)
+                                eval_episode_reward = 0.
+                        if len(eval_episode_rewards[-101:-1]) == 0:
+                            eval_mean_reward = -np.inf
+                        else:
+                            eval_mean_reward = round(float(np.mean(eval_episode_rewards[-101:-1])), 1)
+
+                        logger.logkv("eval mean 100 episode reward", eval_mean_reward)
+                        if len(self.ep_info_buf) > 0 and len(self.ep_info_buf[0]) > 0:
+                            logger.logkv('eval_ep_rewmean',
+                                         safe_mean([ep_info['r'] for ep_info in self.eval_ep_info_buf]))
+                            logger.logkv('eval_eplenmean',
+                                         safe_mean([ep_info['l'] for ep_info in self.eval_ep_info_buf]))
+                        logger.logkv('eval_time_elapsed', int(time.time() - start_time))
+                        logger.dumpkvs()
 
                 episode_rewards[-1] += reward_
                 if done:
@@ -478,6 +540,9 @@ class TD3Mem(OffPolicyRLModel):
                     if len(self.ep_info_buf) > 0 and len(self.ep_info_buf[0]) > 0:
                         logger.logkv('ep_rewmean', safe_mean([ep_info['r'] for ep_info in self.ep_info_buf]))
                         logger.logkv('eplenmean', safe_mean([ep_info['l'] for ep_info in self.ep_info_buf]))
+                    logger.logkv('qs_mean', safe_mean([x for x in qs_buffer]))
+                    # logger.logkv('q4_mean', safe_mean([x for x in q4s]))
+                    logger.logkv('discount_q', discount_episodic_reward)
                     logger.logkv("n_updates", n_updates)
                     logger.logkv("current_lr", current_lr)
                     logger.logkv("fps", fps)
@@ -490,6 +555,9 @@ class TD3Mem(OffPolicyRLModel):
                     logger.logkv("total timesteps", self.num_timesteps)
                     logger.dumpkvs()
                     # Reset infos:
+                    qs_buffer.clear()
+                    # q4s.clear()
+                    discount_episodic_reward = 0.
                     infos_values = []
 
             callback.on_training_end()

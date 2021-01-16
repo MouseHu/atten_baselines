@@ -32,7 +32,8 @@ def nature_cnn(scaled_images, **kwargs):
 
 def attention_mask(feature_map, hard_mask=False):
     attention_feature_map = tf.reduce_mean(feature_map, axis=-1, keepdims=True)
-    attention = tf.nn.sigmoid(
+    with tf.variable_scope("attention"):
+        attention = tf.nn.sigmoid(
         conv(attention_feature_map, 'atten', n_filters=1, filter_size=1, stride=1, init_scale=np.sqrt(2)))
     # attention = layers.convolution2d(attention_feature_map, num_outputs=1, kernel_size=1, stride=1,
     #                                  activation_fn=tf.nn.sigmoid,
@@ -40,13 +41,34 @@ def attention_mask(feature_map, hard_mask=False):
     #                                  biases_initializer=tf.contrib.layers.xavier_initializer())
     if hard_mask:
         attention_max = tf.reduce_max(tf.reduce_max(attention, axis=1, keep_dims=True), axis=2, keep_dims=True)
-        attention_min = tf.reduce_min(tf.reduce_min(attention, axis=1, keep_dims=True), axis=1, keep_dims=True)
-        attention_normalized = (attention - attention_min) / (attention_max - attention_min + 1e-9)
-        feature_map_out = tf.multiply(attention_normalized, attention_feature_map)
+        attention_min = tf.reduce_min(tf.reduce_min(attention, axis=1, keep_dims=True), axis=2, keep_dims=True)
+        attention_normalized = (attention - attention_min) / (attention_max - attention_min + 1e-12)
+        feature_map_out = tf.multiply(attention_normalized, feature_map)
     else:
-        feature_map_out = tf.multiply(attention, attention_feature_map)
+        feature_map_out = tf.multiply(attention, feature_map)
 
-    return conv_to_fc(attention), conv_to_fc(feature_map_out)
+    return attention, feature_map_out
+
+
+def deconv_decoder(feature_map, input_size=16, img_size=128, num_kernel=16, output_channels=4, reuse=False):
+    with tf.variable_scope("decoder", reuse=reuse):
+        padded_map = feature_map
+        # padded_map = tf.pad(feature_map, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
+        feature_map = layers.convolution2d_transpose(padded_map, num_outputs=num_kernel, kernel_size=2, stride=2,
+                                                     activation_fn=tf.nn.relu,
+                                                     padding='valid')
+        input_size = input_size * 2 + 1
+        feature_map = tf.pad(feature_map, tf.constant([[0, 0], [0, 1], [0, 1], [0, 0]]), "REFLECT")
+        while input_size < img_size:
+            feature_map = layers.convolution2d_transpose(feature_map, num_outputs=num_kernel, kernel_size=2, stride=2,
+                                                         activation_fn=tf.nn.relu,
+                                                         padding='valid')
+            input_size *= 2
+
+        feature_map = layers.convolution2d_transpose(feature_map, num_outputs=output_channels, kernel_size=1, stride=1,
+                                                     activation_fn=tf.nn.sigmoid,
+                                                     padding='valid')
+    return feature_map
 
 
 def nature_cnn_exposed(scaled_images, **kwargs):
@@ -87,7 +109,7 @@ def attention_cnn_exposed(scaled_images, **kwargs):
                                    padding='valid', weights_initializer=tf.contrib.layers.xavier_initializer(),
                                    biases_initializer=tf.contrib.layers.xavier_initializer())
         out = tf.pad(out, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
-        out = layers.convolution2d(out, num_outputs=64, kernel_size=3, stride=1, activation_fn=tf.nn.relu,
+        out = layers.convolution2d(out, num_outputs=16, kernel_size=3, stride=1, activation_fn=tf.nn.relu,
                                    padding='valid', weights_initializer=tf.contrib.layers.xavier_initializer(),
                                    biases_initializer=tf.contrib.layers.xavier_initializer())
 
@@ -178,6 +200,7 @@ class BasePolicy(ABC):
         self.n_env = n_env
         self.n_steps = n_steps
         self.n_batch = n_batch
+        self.scale = scale
         with tf.variable_scope("input", reuse=False):
             if obs_phs is None:
                 self._obs_ph, self._processed_obs = observation_input(ob_space, n_batch, scale=scale)
@@ -192,6 +215,13 @@ class BasePolicy(ABC):
         self.reuse = reuse
         self.ob_space = ob_space
         self.ac_space = ac_space
+        self.generate_obs_ph()
+
+    def generate_obs_ph(self):
+        with tf.variable_scope("input", reuse=False):
+                self._pos_obs_ph, self._processed_pos_obs = observation_input(self.ob_space, self.n_batch, scale=self.scale)
+                self._neg_obs_ph, self._processed_neg_obs = observation_input(self.ob_space, self.n_batch, scale=self.scale)
+                self._tar_obs_ph, self._processed_tar_obs = observation_input(self.ob_space, self.n_batch, scale=self.scale)
 
     @property
     def is_discrete(self):
@@ -213,12 +243,51 @@ class BasePolicy(ABC):
         return self._obs_ph
 
     @property
+    def pos_obs_ph(self):
+        """tf.Tensor: placeholder for observations, shape (self.n_batch, ) + self.ob_space.shape."""
+        return self._pos_obs_ph
+
+    @property
+    def neg_obs_ph(self):
+        """tf.Tensor: placeholder for observations, shape (self.n_batch, ) + self.ob_space.shape."""
+        return self._neg_obs_ph
+
+    @property
+    def tar_obs_ph(self):
+        """tf.Tensor: placeholder for observations, shape (self.n_batch, ) + self.ob_space.shape."""
+        return self._tar_obs_ph
+
+    @property
     def processed_obs(self):
         """tf.Tensor: processed observations, shape (self.n_batch, ) + self.ob_space.shape.
 
         The form of processing depends on the type of the observation space, and the parameters
         whether scale is passed to the constructor; see observation_input for more information."""
         return self._processed_obs
+
+    @property
+    def processed_tar_obs(self):
+        """tf.Tensor: processed observations, shape (self.n_batch, ) + self.ob_space.shape.
+
+        The form of processing depends on the type of the observation space, and the parameters
+        whether scale is passed to the constructor; see observation_input for more information."""
+        return self._processed_tar_obs
+
+    @property
+    def processed_neg_obs(self):
+        """tf.Tensor: processed observations, shape (self.n_batch, ) + self.ob_space.shape.
+
+        The form of processing depends on the type of the observation space, and the parameters
+        whether scale is passed to the constructor; see observation_input for more information."""
+        return self._processed_neg_obs
+
+    @property
+    def processed_pos_obs(self):
+        """tf.Tensor: processed observations, shape (self.n_batch, ) + self.ob_space.shape.
+
+        The form of processing depends on the type of the observation space, and the parameters
+        whether scale is passed to the constructor; see observation_input for more information."""
+        return self._processed_pos_obs
 
     @property
     def action_ph(self):
