@@ -9367,3 +9367,1499 @@ atten_decoder_coef 	1.0
 | total_timesteps    | 18920080 |
 | value_loss         | 0.0386   |
 ---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0718   |
+| atten_encoder_loss | 0.00226  |
+| contrastive_loss   | 1.5      |
+| ep_len_mean        | 1.21e+03 |
+| ep_reward_mean     | 64.2     |
+| explained_variance | 0.849    |
+| fps                | 287      |
+| nupdates           | 500      |
+| policy_entropy     | 1.17     |
+| policy_loss        | 0.0389   |
+| reconstruct_loss   | 0.0168   |
+| total_timesteps    | 18960000 |
+| value_loss         | 0.0205   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.104    |
+| atten_encoder_loss | 0.00203  |
+| contrastive_loss   | 1.64     |
+| ep_len_mean        | 1.23e+03 |
+| ep_reward_mean     | 64.2     |
+| explained_variance | 0.808    |
+| fps                | 293      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.12     |
+| policy_loss        | 6.18e-05 |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19000000 |
+| value_loss         | 0.0293   |
+---------------------------------
+19020000
+--------------------------------------
+| ep_len_mean_eval        | 898      |
+| ep_reward_mean_eval     | 33.9     |
+| explained_variance_eval | -0.453   |
+| fps_eval                | 675      |
+| total_timesteps_eval    | 19020080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0883   |
+| atten_encoder_loss | 0.00191  |
+| contrastive_loss   | 1.65     |
+| ep_len_mean        | 1.22e+03 |
+| ep_reward_mean     | 63.1     |
+| explained_variance | 0.932    |
+| fps                | 305      |
+| nupdates           | 1        |
+| policy_entropy     | 1.23     |
+| policy_loss        | 0.0147   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19030080 |
+| value_loss         | 0.0095   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0761   |
+| atten_encoder_loss | 0.00203  |
+| contrastive_loss   | 1.72     |
+| ep_len_mean        | 1.23e+03 |
+| ep_reward_mean     | 63.7     |
+| explained_variance | 0.862    |
+| fps                | 284      |
+| nupdates           | 500      |
+| policy_entropy     | 1.07     |
+| policy_loss        | 0.0151   |
+| reconstruct_loss   | 0.0168   |
+| total_timesteps    | 19070000 |
+| value_loss         | 0.0142   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0654   |
+| atten_encoder_loss | 0.00216  |
+| contrastive_loss   | 1.9      |
+| ep_len_mean        | 1.27e+03 |
+| ep_reward_mean     | 68.1     |
+| explained_variance | 0.541    |
+| fps                | 290      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.06     |
+| policy_loss        | -0.00111 |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 19110000 |
+| value_loss         | 0.214    |
+---------------------------------
+19130000
+--------------------------------------
+| ep_len_mean_eval        | 907      |
+| ep_reward_mean_eval     | 34.9     |
+| explained_variance_eval | -0.281   |
+| fps_eval                | 495      |
+| total_timesteps_eval    | 19130080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0964   |
+| atten_encoder_loss | 0.00246  |
+| contrastive_loss   | 1.82     |
+| ep_len_mean        | 1.26e+03 |
+| ep_reward_mean     | 67.9     |
+| explained_variance | 0.874    |
+| fps                | 218      |
+| nupdates           | 1        |
+| policy_entropy     | 1.14     |
+| policy_loss        | 0.00128  |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19140080 |
+| value_loss         | 0.0451   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0646   |
+| atten_encoder_loss | 0.00218  |
+| contrastive_loss   | 1.71     |
+| ep_len_mean        | 1.25e+03 |
+| ep_reward_mean     | 72.1     |
+| explained_variance | 0.958    |
+| fps                | 283      |
+| nupdates           | 500      |
+| policy_entropy     | 1.12     |
+| policy_loss        | 0.0109   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19180000 |
+| value_loss         | 0.0104   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0909   |
+| atten_encoder_loss | 0.00209  |
+| contrastive_loss   | 1.74     |
+| ep_len_mean        | 1.26e+03 |
+| ep_reward_mean     | 73.7     |
+| explained_variance | 0.966    |
+| fps                | 292      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.1      |
+| policy_loss        | 0.0407   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19220000 |
+| value_loss         | 0.0105   |
+---------------------------------
+19240000
+--------------------------------------
+| ep_len_mean_eval        | 934      |
+| ep_reward_mean_eval     | 37       |
+| explained_variance_eval | 0.0981   |
+| fps_eval                | 369      |
+| total_timesteps_eval    | 19240080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0735   |
+| atten_encoder_loss | 0.00207  |
+| contrastive_loss   | 1.75     |
+| ep_len_mean        | 1.26e+03 |
+| ep_reward_mean     | 72.9     |
+| explained_variance | 0.727    |
+| fps                | 247      |
+| nupdates           | 1        |
+| policy_entropy     | 1.1      |
+| policy_loss        | 0.0424   |
+| reconstruct_loss   | 0.0168   |
+| total_timesteps    | 19250080 |
+| value_loss         | 0.0401   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0846   |
+| atten_encoder_loss | 0.00213  |
+| contrastive_loss   | 1.81     |
+| ep_len_mean        | 1.27e+03 |
+| ep_reward_mean     | 71.7     |
+| explained_variance | 0.52     |
+| fps                | 291      |
+| nupdates           | 500      |
+| policy_entropy     | 1.17     |
+| policy_loss        | 0.0597   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19290000 |
+| value_loss         | 0.0422   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0736   |
+| atten_encoder_loss | 0.00208  |
+| contrastive_loss   | 1.94     |
+| ep_len_mean        | 1.27e+03 |
+| ep_reward_mean     | 73.5     |
+| explained_variance | 0.725    |
+| fps                | 301      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.04     |
+| policy_loss        | 0.0055   |
+| reconstruct_loss   | 0.0165   |
+| total_timesteps    | 19330000 |
+| value_loss         | 0.0972   |
+---------------------------------
+19350000
+--------------------------------------
+| ep_len_mean_eval        | 943      |
+| ep_reward_mean_eval     | 38.5     |
+| explained_variance_eval | -0.00608 |
+| fps_eval                | 466      |
+| total_timesteps_eval    | 19350080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0606   |
+| atten_encoder_loss | 0.00217  |
+| contrastive_loss   | 1.81     |
+| ep_len_mean        | 1.29e+03 |
+| ep_reward_mean     | 73       |
+| explained_variance | -0.921   |
+| fps                | 332      |
+| nupdates           | 1        |
+| policy_entropy     | 1.11     |
+| policy_loss        | 0.159    |
+| reconstruct_loss   | 0.0168   |
+| total_timesteps    | 19360080 |
+| value_loss         | 0.457    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0773   |
+| atten_encoder_loss | 0.00184  |
+| contrastive_loss   | 1.88     |
+| ep_len_mean        | 1.27e+03 |
+| ep_reward_mean     | 74.6     |
+| explained_variance | 0.79     |
+| fps                | 292      |
+| nupdates           | 500      |
+| policy_entropy     | 1.11     |
+| policy_loss        | -0.00444 |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 19400000 |
+| value_loss         | 0.0201   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0827   |
+| atten_encoder_loss | 0.00207  |
+| contrastive_loss   | 1.69     |
+| ep_len_mean        | 1.28e+03 |
+| ep_reward_mean     | 75.6     |
+| explained_variance | 0.837    |
+| fps                | 291      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.11     |
+| policy_loss        | 0.0471   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19440000 |
+| value_loss         | 0.0332   |
+---------------------------------
+19460000
+--------------------------------------
+| ep_len_mean_eval        | 964      |
+| ep_reward_mean_eval     | 40.1     |
+| explained_variance_eval | 0.0381   |
+| fps_eval                | 392      |
+| total_timesteps_eval    | 19460080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.158    |
+| atten_encoder_loss | 0.00194  |
+| contrastive_loss   | 2        |
+| ep_len_mean        | 1.27e+03 |
+| ep_reward_mean     | 75.1     |
+| explained_variance | 0.904    |
+| fps                | 283      |
+| nupdates           | 1        |
+| policy_entropy     | 1.08     |
+| policy_loss        | 0.00826  |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 19470080 |
+| value_loss         | 0.00715  |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0865   |
+| atten_encoder_loss | 0.00221  |
+| contrastive_loss   | 1.85     |
+| ep_len_mean        | 1.26e+03 |
+| ep_reward_mean     | 68.3     |
+| explained_variance | 0.901    |
+| fps                | 288      |
+| nupdates           | 500      |
+| policy_entropy     | 1.05     |
+| policy_loss        | 0.0221   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19510000 |
+| value_loss         | 0.0635   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0774   |
+| atten_encoder_loss | 0.00253  |
+| contrastive_loss   | 1.72     |
+| ep_len_mean        | 1.26e+03 |
+| ep_reward_mean     | 69.8     |
+| explained_variance | 0.871    |
+| fps                | 295      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.11     |
+| policy_loss        | 0.0168   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19550000 |
+| value_loss         | 0.042    |
+---------------------------------
+19570000
+--------------------------------------
+| ep_len_mean_eval        | 989      |
+| ep_reward_mean_eval     | 41.5     |
+| explained_variance_eval | 0.269    |
+| fps_eval                | 420      |
+| total_timesteps_eval    | 19570080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0632   |
+| atten_encoder_loss | 0.00214  |
+| contrastive_loss   | 1.59     |
+| ep_len_mean        | 1.24e+03 |
+| ep_reward_mean     | 65.6     |
+| explained_variance | 0.929    |
+| fps                | 242      |
+| nupdates           | 1        |
+| policy_entropy     | 1.08     |
+| policy_loss        | 0.0105   |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 19580080 |
+| value_loss         | 0.00958  |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0726   |
+| atten_encoder_loss | 0.00217  |
+| contrastive_loss   | 1.53     |
+| ep_len_mean        | 1.25e+03 |
+| ep_reward_mean     | 67.4     |
+| explained_variance | 0.804    |
+| fps                | 279      |
+| nupdates           | 500      |
+| policy_entropy     | 1.11     |
+| policy_loss        | 0.0316   |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 19620000 |
+| value_loss         | 0.0222   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0994   |
+| atten_encoder_loss | 0.00228  |
+| contrastive_loss   | 1.57     |
+| ep_len_mean        | 1.24e+03 |
+| ep_reward_mean     | 68.4     |
+| explained_variance | 0.769    |
+| fps                | 285      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.19     |
+| policy_loss        | 0.0126   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19660000 |
+| value_loss         | 0.02     |
+---------------------------------
+19680000
+--------------------------------------
+| ep_len_mean_eval        | 997      |
+| ep_reward_mean_eval     | 42.4     |
+| explained_variance_eval | 0.155    |
+| fps_eval                | 547      |
+| total_timesteps_eval    | 19680080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0916   |
+| atten_encoder_loss | 0.00219  |
+| contrastive_loss   | 1.73     |
+| ep_len_mean        | 1.24e+03 |
+| ep_reward_mean     | 70       |
+| explained_variance | 0.853    |
+| fps                | 259      |
+| nupdates           | 1        |
+| policy_entropy     | 1.05     |
+| policy_loss        | -0.0162  |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19690080 |
+| value_loss         | 0.0125   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.105    |
+| atten_encoder_loss | 0.00198  |
+| contrastive_loss   | 1.42     |
+| ep_len_mean        | 1.25e+03 |
+| ep_reward_mean     | 77.3     |
+| explained_variance | 0.343    |
+| fps                | 286      |
+| nupdates           | 500      |
+| policy_entropy     | 1.11     |
+| policy_loss        | -0.153   |
+| reconstruct_loss   | 0.0168   |
+| total_timesteps    | 19730000 |
+| value_loss         | 0.342    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0687   |
+| atten_encoder_loss | 0.00187  |
+| contrastive_loss   | 1.81     |
+| ep_len_mean        | 1.23e+03 |
+| ep_reward_mean     | 76.1     |
+| explained_variance | 0.825    |
+| fps                | 292      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.17     |
+| policy_loss        | -0.00468 |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19770000 |
+| value_loss         | 0.0163   |
+---------------------------------
+19790000
+--------------------------------------
+| ep_len_mean_eval        | 1.01e+03 |
+| ep_reward_mean_eval     | 43       |
+| explained_variance_eval | 0.111    |
+| fps_eval                | 417      |
+| total_timesteps_eval    | 19790080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0748   |
+| atten_encoder_loss | 0.00205  |
+| contrastive_loss   | 1.61     |
+| ep_len_mean        | 1.25e+03 |
+| ep_reward_mean     | 80.1     |
+| explained_variance | 0.847    |
+| fps                | 328      |
+| nupdates           | 1        |
+| policy_entropy     | 1.08     |
+| policy_loss        | 0.097    |
+| reconstruct_loss   | 0.0168   |
+| total_timesteps    | 19800080 |
+| value_loss         | 0.0235   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0735   |
+| atten_encoder_loss | 0.00221  |
+| contrastive_loss   | 1.75     |
+| ep_len_mean        | 1.25e+03 |
+| ep_reward_mean     | 78       |
+| explained_variance | 0.379    |
+| fps                | 297      |
+| nupdates           | 500      |
+| policy_entropy     | 1.04     |
+| policy_loss        | -0.116   |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 19840000 |
+| value_loss         | 0.23     |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.101    |
+| atten_encoder_loss | 0.00205  |
+| contrastive_loss   | 1.54     |
+| ep_len_mean        | 1.24e+03 |
+| ep_reward_mean     | 76.1     |
+| explained_variance | 0.167    |
+| fps                | 299      |
+| nupdates           | 1000     |
+| policy_entropy     | 0.961    |
+| policy_loss        | -0.0644  |
+| reconstruct_loss   | 0.0168   |
+| total_timesteps    | 19880000 |
+| value_loss         | 0.351    |
+---------------------------------
+19900000
+--------------------------------------
+| ep_len_mean_eval        | 1.02e+03 |
+| ep_reward_mean_eval     | 44.8     |
+| explained_variance_eval | 0.155    |
+| fps_eval                | 436      |
+| total_timesteps_eval    | 19900080 |
+--------------------------------------
+[0.0]
+----------------------------------
+| atten_decoder_loss | 0.0851    |
+| atten_encoder_loss | 0.00222   |
+| contrastive_loss   | 1.9       |
+| ep_len_mean        | 1.25e+03  |
+| ep_reward_mean     | 76.4      |
+| explained_variance | 0.747     |
+| fps                | 294       |
+| nupdates           | 1         |
+| policy_entropy     | 1.12      |
+| policy_loss        | -0.000113 |
+| reconstruct_loss   | 0.0165    |
+| total_timesteps    | 19910080  |
+| value_loss         | 0.0735    |
+----------------------------------
+----------------------------------
+| atten_decoder_loss | 0.0826    |
+| atten_encoder_loss | 0.00204   |
+| contrastive_loss   | 1.67      |
+| ep_len_mean        | 1.26e+03  |
+| ep_reward_mean     | 75.7      |
+| explained_variance | 0.861     |
+| fps                | 289       |
+| nupdates           | 500       |
+| policy_entropy     | 1.1       |
+| policy_loss        | -0.000429 |
+| reconstruct_loss   | 0.0167    |
+| total_timesteps    | 19950000  |
+| value_loss         | 0.105     |
+----------------------------------
+---------------------------------
+| atten_decoder_loss | 0.112    |
+| atten_encoder_loss | 0.00273  |
+| contrastive_loss   | 1.65     |
+| ep_len_mean        | 1.28e+03 |
+| ep_reward_mean     | 74.8     |
+| explained_variance | 0.828    |
+| fps                | 288      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.05     |
+| policy_loss        | 0.0162   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 19990000 |
+| value_loss         | 0.0195   |
+---------------------------------
+20010000
+--------------------------------------
+| ep_len_mean_eval        | 1.01e+03 |
+| ep_reward_mean_eval     | 43.8     |
+| explained_variance_eval | 0.133    |
+| fps_eval                | 449      |
+| total_timesteps_eval    | 20010080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0681   |
+| atten_encoder_loss | 0.00216  |
+| contrastive_loss   | 1.61     |
+| ep_len_mean        | 1.31e+03 |
+| ep_reward_mean     | 77       |
+| explained_variance | 0.941    |
+| fps                | 354      |
+| nupdates           | 1        |
+| policy_entropy     | 1.09     |
+| policy_loss        | 0.0266   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20020080 |
+| value_loss         | 0.00783  |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.105    |
+| atten_encoder_loss | 0.00217  |
+| contrastive_loss   | 1.6      |
+| ep_len_mean        | 1.31e+03 |
+| ep_reward_mean     | 78.6     |
+| explained_variance | 0.735    |
+| fps                | 288      |
+| nupdates           | 500      |
+| policy_entropy     | 1.18     |
+| policy_loss        | 0.07     |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20060000 |
+| value_loss         | 0.36     |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.079    |
+| atten_encoder_loss | 0.00201  |
+| contrastive_loss   | 1.64     |
+| ep_len_mean        | 1.27e+03 |
+| ep_reward_mean     | 73.9     |
+| explained_variance | 0.648    |
+| fps                | 292      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.08     |
+| policy_loss        | -0.00828 |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20100000 |
+| value_loss         | 0.0284   |
+---------------------------------
+20120000
+--------------------------------------
+| ep_len_mean_eval        | 960      |
+| ep_reward_mean_eval     | 40.8     |
+| explained_variance_eval | -0.389   |
+| fps_eval                | 476      |
+| total_timesteps_eval    | 20120080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.144    |
+| atten_encoder_loss | 0.00219  |
+| contrastive_loss   | 1.61     |
+| ep_len_mean        | 1.25e+03 |
+| ep_reward_mean     | 73.8     |
+| explained_variance | 0.257    |
+| fps                | 295      |
+| nupdates           | 1        |
+| policy_entropy     | 1.1      |
+| policy_loss        | -0.0487  |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20130080 |
+| value_loss         | 0.0678   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0765   |
+| atten_encoder_loss | 0.00214  |
+| contrastive_loss   | 1.48     |
+| ep_len_mean        | 1.23e+03 |
+| ep_reward_mean     | 72       |
+| explained_variance | 0.956    |
+| fps                | 294      |
+| nupdates           | 500      |
+| policy_entropy     | 1.08     |
+| policy_loss        | 0.0668   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20170000 |
+| value_loss         | 0.0213   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0999   |
+| atten_encoder_loss | 0.00206  |
+| contrastive_loss   | 2.02     |
+| ep_len_mean        | 1.24e+03 |
+| ep_reward_mean     | 73.3     |
+| explained_variance | 0.802    |
+| fps                | 294      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.18     |
+| policy_loss        | -0.00921 |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20210000 |
+| value_loss         | 0.0328   |
+---------------------------------
+20230000
+--------------------------------------
+| ep_len_mean_eval        | 936      |
+| ep_reward_mean_eval     | 39.2     |
+| explained_variance_eval | -0.329   |
+| fps_eval                | 389      |
+| total_timesteps_eval    | 20230080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.141    |
+| atten_encoder_loss | 0.00196  |
+| contrastive_loss   | 2        |
+| ep_len_mean        | 1.25e+03 |
+| ep_reward_mean     | 73.6     |
+| explained_variance | 0.702    |
+| fps                | 287      |
+| nupdates           | 1        |
+| policy_entropy     | 1.12     |
+| policy_loss        | 0.142    |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20240080 |
+| value_loss         | 0.806    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0928   |
+| atten_encoder_loss | 0.00197  |
+| contrastive_loss   | 1.85     |
+| ep_len_mean        | 1.29e+03 |
+| ep_reward_mean     | 79.7     |
+| explained_variance | 0.89     |
+| fps                | 262      |
+| nupdates           | 500      |
+| policy_entropy     | 1.06     |
+| policy_loss        | -0.0327  |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20280000 |
+| value_loss         | 0.0597   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0922   |
+| atten_encoder_loss | 0.00193  |
+| contrastive_loss   | 1.6      |
+| ep_len_mean        | 1.29e+03 |
+| ep_reward_mean     | 81.4     |
+| explained_variance | 0.643    |
+| fps                | 271      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.1      |
+| policy_loss        | -0.0391  |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 20320000 |
+| value_loss         | 0.0319   |
+---------------------------------
+20340000
+--------------------------------------
+| ep_len_mean_eval        | 937      |
+| ep_reward_mean_eval     | 39       |
+| explained_variance_eval | -0.27    |
+| fps_eval                | 469      |
+| total_timesteps_eval    | 20340080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.15     |
+| atten_encoder_loss | 0.00248  |
+| contrastive_loss   | 1.71     |
+| ep_len_mean        | 1.28e+03 |
+| ep_reward_mean     | 83.4     |
+| explained_variance | 0.451    |
+| fps                | 288      |
+| nupdates           | 1        |
+| policy_entropy     | 0.949    |
+| policy_loss        | 0.0224   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20350080 |
+| value_loss         | 0.0381   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0936   |
+| atten_encoder_loss | 0.00208  |
+| contrastive_loss   | 1.63     |
+| ep_len_mean        | 1.28e+03 |
+| ep_reward_mean     | 81.3     |
+| explained_variance | 0.485    |
+| fps                | 273      |
+| nupdates           | 500      |
+| policy_entropy     | 1.13     |
+| policy_loss        | -0.0575  |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20390000 |
+| value_loss         | 0.374    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0812   |
+| atten_encoder_loss | 0.00208  |
+| contrastive_loss   | 1.76     |
+| ep_len_mean        | 1.29e+03 |
+| ep_reward_mean     | 79.5     |
+| explained_variance | 0.664    |
+| fps                | 269      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.07     |
+| policy_loss        | -0.00119 |
+| reconstruct_loss   | 0.0168   |
+| total_timesteps    | 20430000 |
+| value_loss         | 0.157    |
+---------------------------------
+20450000
+--------------------------------------
+| ep_len_mean_eval        | 957      |
+| ep_reward_mean_eval     | 40.2     |
+| explained_variance_eval | 0.281    |
+| fps_eval                | 433      |
+| total_timesteps_eval    | 20450080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0865   |
+| atten_encoder_loss | 0.00219  |
+| contrastive_loss   | 1.74     |
+| ep_len_mean        | 1.34e+03 |
+| ep_reward_mean     | 84.3     |
+| explained_variance | 0.743    |
+| fps                | 276      |
+| nupdates           | 1        |
+| policy_entropy     | 1.07     |
+| policy_loss        | -0.0344  |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 20460080 |
+| value_loss         | 0.0223   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0996   |
+| atten_encoder_loss | 0.00217  |
+| contrastive_loss   | 1.64     |
+| ep_len_mean        | 1.34e+03 |
+| ep_reward_mean     | 81.5     |
+| explained_variance | 0.602    |
+| fps                | 284      |
+| nupdates           | 500      |
+| policy_entropy     | 1.08     |
+| policy_loss        | -0.0151  |
+| reconstruct_loss   | 0.0165   |
+| total_timesteps    | 20500000 |
+| value_loss         | 0.0964   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.112    |
+| atten_encoder_loss | 0.00201  |
+| contrastive_loss   | 1.8      |
+| ep_len_mean        | 1.34e+03 |
+| ep_reward_mean     | 85.1     |
+| explained_variance | 0.489    |
+| fps                | 284      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.05     |
+| policy_loss        | -0.12    |
+| reconstruct_loss   | 0.0165   |
+| total_timesteps    | 20540000 |
+| value_loss         | 0.164    |
+---------------------------------
+20560000
+--------------------------------------
+| ep_len_mean_eval        | 963      |
+| ep_reward_mean_eval     | 40.7     |
+| explained_variance_eval | 0.131    |
+| fps_eval                | 509      |
+| total_timesteps_eval    | 20560080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0976   |
+| atten_encoder_loss | 0.002    |
+| contrastive_loss   | 1.6      |
+| ep_len_mean        | 1.31e+03 |
+| ep_reward_mean     | 84.6     |
+| explained_variance | 0.975    |
+| fps                | 239      |
+| nupdates           | 1        |
+| policy_entropy     | 0.991    |
+| policy_loss        | -0.0206  |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20570080 |
+| value_loss         | 0.011    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.117    |
+| atten_encoder_loss | 0.00208  |
+| contrastive_loss   | 1.56     |
+| ep_len_mean        | 1.27e+03 |
+| ep_reward_mean     | 84.7     |
+| explained_variance | 0.57     |
+| fps                | 291      |
+| nupdates           | 500      |
+| policy_entropy     | 0.995    |
+| policy_loss        | -0.0884  |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20610000 |
+| value_loss         | 0.361    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0721   |
+| atten_encoder_loss | 0.0019   |
+| contrastive_loss   | 1.35     |
+| ep_len_mean        | 1.28e+03 |
+| ep_reward_mean     | 83.6     |
+| explained_variance | 0.467    |
+| fps                | 296      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.07     |
+| policy_loss        | -0.032   |
+| reconstruct_loss   | 0.0165   |
+| total_timesteps    | 20650000 |
+| value_loss         | 0.0339   |
+---------------------------------
+20670000
+--------------------------------------
+| ep_len_mean_eval        | 955      |
+| ep_reward_mean_eval     | 41       |
+| explained_variance_eval | 0.243    |
+| fps_eval                | 342      |
+| total_timesteps_eval    | 20670080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0869   |
+| atten_encoder_loss | 0.00191  |
+| contrastive_loss   | 1.89     |
+| ep_len_mean        | 1.28e+03 |
+| ep_reward_mean     | 80.8     |
+| explained_variance | -2.81    |
+| fps                | 249      |
+| nupdates           | 1        |
+| policy_entropy     | 0.957    |
+| policy_loss        | 0.0591   |
+| reconstruct_loss   | 0.0165   |
+| total_timesteps    | 20680080 |
+| value_loss         | 0.156    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0801   |
+| atten_encoder_loss | 0.00203  |
+| contrastive_loss   | 1.46     |
+| ep_len_mean        | 1.29e+03 |
+| ep_reward_mean     | 81.2     |
+| explained_variance | -1       |
+| fps                | 272      |
+| nupdates           | 500      |
+| policy_entropy     | 1.1      |
+| policy_loss        | -0.00762 |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20720000 |
+| value_loss         | 0.866    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.148    |
+| atten_encoder_loss | 0.00219  |
+| contrastive_loss   | 1.88     |
+| ep_len_mean        | 1.31e+03 |
+| ep_reward_mean     | 80.2     |
+| explained_variance | 0.646    |
+| fps                | 284      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.08     |
+| policy_loss        | -0.262   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20760000 |
+| value_loss         | 0.417    |
+---------------------------------
+20780000
+--------------------------------------
+| ep_len_mean_eval        | 961      |
+| ep_reward_mean_eval     | 40.5     |
+| explained_variance_eval | 0.295    |
+| fps_eval                | 478      |
+| total_timesteps_eval    | 20780080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0814   |
+| atten_encoder_loss | 0.002    |
+| contrastive_loss   | 1.72     |
+| ep_len_mean        | 1.31e+03 |
+| ep_reward_mean     | 80.4     |
+| explained_variance | 0.906    |
+| fps                | 294      |
+| nupdates           | 1        |
+| policy_entropy     | 1.19     |
+| policy_loss        | 0.00832  |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20790080 |
+| value_loss         | 0.00684  |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.106    |
+| atten_encoder_loss | 0.00188  |
+| contrastive_loss   | 1.81     |
+| ep_len_mean        | 1.33e+03 |
+| ep_reward_mean     | 86.2     |
+| explained_variance | 0.551    |
+| fps                | 292      |
+| nupdates           | 500      |
+| policy_entropy     | 1.03     |
+| policy_loss        | -0.2     |
+| reconstruct_loss   | 0.0165   |
+| total_timesteps    | 20830000 |
+| value_loss         | 0.293    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.099    |
+| atten_encoder_loss | 0.00198  |
+| contrastive_loss   | 1.74     |
+| ep_len_mean        | 1.31e+03 |
+| ep_reward_mean     | 84.6     |
+| explained_variance | 0.716    |
+| fps                | 298      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.05     |
+| policy_loss        | -0.0695  |
+| reconstruct_loss   | 0.0164   |
+| total_timesteps    | 20870000 |
+| value_loss         | 0.199    |
+---------------------------------
+20890000
+--------------------------------------
+| ep_len_mean_eval        | 948      |
+| ep_reward_mean_eval     | 39.3     |
+| explained_variance_eval | -0.068   |
+| fps_eval                | 547      |
+| total_timesteps_eval    | 20890080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0871   |
+| atten_encoder_loss | 0.00202  |
+| contrastive_loss   | 1.46     |
+| ep_len_mean        | 1.32e+03 |
+| ep_reward_mean     | 87.4     |
+| explained_variance | 0.868    |
+| fps                | 333      |
+| nupdates           | 1        |
+| policy_entropy     | 1.06     |
+| policy_loss        | 0.0265   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 20900080 |
+| value_loss         | 0.0105   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.121    |
+| atten_encoder_loss | 0.00202  |
+| contrastive_loss   | 1.71     |
+| ep_len_mean        | 1.3e+03  |
+| ep_reward_mean     | 85       |
+| explained_variance | 0.642    |
+| fps                | 311      |
+| nupdates           | 500      |
+| policy_entropy     | 1.11     |
+| policy_loss        | -0.0845  |
+| reconstruct_loss   | 0.0165   |
+| total_timesteps    | 20940000 |
+| value_loss         | 0.329    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0962   |
+| atten_encoder_loss | 0.00184  |
+| contrastive_loss   | 1.48     |
+| ep_len_mean        | 1.31e+03 |
+| ep_reward_mean     | 85.7     |
+| explained_variance | 0.781    |
+| fps                | 305      |
+| nupdates           | 1000     |
+| policy_entropy     | 0.933    |
+| policy_loss        | 0.0134   |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 20980000 |
+| value_loss         | 0.0942   |
+---------------------------------
+21000000
+--------------------------------------
+| ep_len_mean_eval        | 948      |
+| ep_reward_mean_eval     | 39.2     |
+| explained_variance_eval | 0.122    |
+| fps_eval                | 435      |
+| total_timesteps_eval    | 21000080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0897   |
+| atten_encoder_loss | 0.00196  |
+| contrastive_loss   | 1.6      |
+| ep_len_mean        | 1.33e+03 |
+| ep_reward_mean     | 83.2     |
+| explained_variance | 0.663    |
+| fps                | 234      |
+| nupdates           | 1        |
+| policy_entropy     | 1.1      |
+| policy_loss        | -0.00822 |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21010080 |
+| value_loss         | 0.0357   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0903   |
+| atten_encoder_loss | 0.002    |
+| contrastive_loss   | 1.38     |
+| ep_len_mean        | 1.32e+03 |
+| ep_reward_mean     | 79.4     |
+| explained_variance | 0.641    |
+| fps                | 287      |
+| nupdates           | 500      |
+| policy_entropy     | 1.09     |
+| policy_loss        | 0.00914  |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 21050000 |
+| value_loss         | 0.0326   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0765   |
+| atten_encoder_loss | 0.00197  |
+| contrastive_loss   | 1.66     |
+| ep_len_mean        | 1.34e+03 |
+| ep_reward_mean     | 81.8     |
+| explained_variance | 0.899    |
+| fps                | 288      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.1      |
+| policy_loss        | 0.0259   |
+| reconstruct_loss   | 0.0168   |
+| total_timesteps    | 21090000 |
+| value_loss         | 0.0129   |
+---------------------------------
+21110000
+--------------------------------------
+| ep_len_mean_eval        | 960      |
+| ep_reward_mean_eval     | 39.8     |
+| explained_variance_eval | 0.0188   |
+| fps_eval                | 498      |
+| total_timesteps_eval    | 21110080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.086    |
+| atten_encoder_loss | 0.00214  |
+| contrastive_loss   | 1.88     |
+| ep_len_mean        | 1.35e+03 |
+| ep_reward_mean     | 81       |
+| explained_variance | 0.824    |
+| fps                | 228      |
+| nupdates           | 1        |
+| policy_entropy     | 1.09     |
+| policy_loss        | 0.0405   |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21120080 |
+| value_loss         | 0.138    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.126    |
+| atten_encoder_loss | 0.00217  |
+| contrastive_loss   | 1.55     |
+| ep_len_mean        | 1.35e+03 |
+| ep_reward_mean     | 87.4     |
+| explained_variance | 0.814    |
+| fps                | 287      |
+| nupdates           | 500      |
+| policy_entropy     | 1.09     |
+| policy_loss        | 0.0305   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 21160000 |
+| value_loss         | 0.0202   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.116    |
+| atten_encoder_loss | 0.00217  |
+| contrastive_loss   | 1.61     |
+| ep_len_mean        | 1.35e+03 |
+| ep_reward_mean     | 88.8     |
+| explained_variance | 0.796    |
+| fps                | 292      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.14     |
+| policy_loss        | -0.03    |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21200000 |
+| value_loss         | 0.0461   |
+---------------------------------
+21220000
+--------------------------------------
+| ep_len_mean_eval        | 980      |
+| ep_reward_mean_eval     | 40.9     |
+| explained_variance_eval | 0.187    |
+| fps_eval                | 605      |
+| total_timesteps_eval    | 21220080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0803   |
+| atten_encoder_loss | 0.00194  |
+| contrastive_loss   | 1.47     |
+| ep_len_mean        | 1.35e+03 |
+| ep_reward_mean     | 89.2     |
+| explained_variance | 0.462    |
+| fps                | 354      |
+| nupdates           | 1        |
+| policy_entropy     | 1.1      |
+| policy_loss        | -0.0819  |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21230080 |
+| value_loss         | 0.239    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0963   |
+| atten_encoder_loss | 0.00203  |
+| contrastive_loss   | 1.48     |
+| ep_len_mean        | 1.37e+03 |
+| ep_reward_mean     | 91.7     |
+| explained_variance | 0.758    |
+| fps                | 304      |
+| nupdates           | 500      |
+| policy_entropy     | 1.13     |
+| policy_loss        | 0.00159  |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21270000 |
+| value_loss         | 0.0171   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0938   |
+| atten_encoder_loss | 0.00202  |
+| contrastive_loss   | 1.49     |
+| ep_len_mean        | 1.39e+03 |
+| ep_reward_mean     | 89.9     |
+| explained_variance | 0.754    |
+| fps                | 295      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.15     |
+| policy_loss        | -0.0392  |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21310000 |
+| value_loss         | 0.019    |
+---------------------------------
+21330000
+--------------------------------------
+| ep_len_mean_eval        | 984      |
+| ep_reward_mean_eval     | 41.2     |
+| explained_variance_eval | 0.152    |
+| fps_eval                | 415      |
+| total_timesteps_eval    | 21330080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.101    |
+| atten_encoder_loss | 0.00211  |
+| contrastive_loss   | 1.69     |
+| ep_len_mean        | 1.4e+03  |
+| ep_reward_mean     | 90.3     |
+| explained_variance | 0.791    |
+| fps                | 257      |
+| nupdates           | 1        |
+| policy_entropy     | 1.11     |
+| policy_loss        | 0.00566  |
+| reconstruct_loss   | 0.0168   |
+| total_timesteps    | 21340080 |
+| value_loss         | 0.0175   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0842   |
+| atten_encoder_loss | 0.00209  |
+| contrastive_loss   | 1.49     |
+| ep_len_mean        | 1.36e+03 |
+| ep_reward_mean     | 91.8     |
+| explained_variance | 0.748    |
+| fps                | 289      |
+| nupdates           | 500      |
+| policy_entropy     | 1.02     |
+| policy_loss        | -0.103   |
+| reconstruct_loss   | 0.0164   |
+| total_timesteps    | 21380000 |
+| value_loss         | 0.156    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0985   |
+| atten_encoder_loss | 0.00201  |
+| contrastive_loss   | 1.58     |
+| ep_len_mean        | 1.36e+03 |
+| ep_reward_mean     | 94.8     |
+| explained_variance | 0.982    |
+| fps                | 295      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.02     |
+| policy_loss        | -0.025   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 21420000 |
+| value_loss         | 0.0105   |
+---------------------------------
+21440000
+--------------------------------------
+| ep_len_mean_eval        | 983      |
+| ep_reward_mean_eval     | 41.3     |
+| explained_variance_eval | 0.351    |
+| fps_eval                | 595      |
+| total_timesteps_eval    | 21440080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.089    |
+| atten_encoder_loss | 0.00196  |
+| contrastive_loss   | 1.57     |
+| ep_len_mean        | 1.38e+03 |
+| ep_reward_mean     | 96.4     |
+| explained_variance | 0.932    |
+| fps                | 343      |
+| nupdates           | 1        |
+| policy_entropy     | 1.18     |
+| policy_loss        | 0.0164   |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21450080 |
+| value_loss         | 0.00762  |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.108    |
+| atten_encoder_loss | 0.00224  |
+| contrastive_loss   | 1.61     |
+| ep_len_mean        | 1.36e+03 |
+| ep_reward_mean     | 95.6     |
+| explained_variance | 0.136    |
+| fps                | 303      |
+| nupdates           | 500      |
+| policy_entropy     | 0.988    |
+| policy_loss        | -0.0666  |
+| reconstruct_loss   | 0.0164   |
+| total_timesteps    | 21490000 |
+| value_loss         | 0.14     |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0792   |
+| atten_encoder_loss | 0.00188  |
+| contrastive_loss   | 1.89     |
+| ep_len_mean        | 1.39e+03 |
+| ep_reward_mean     | 99.5     |
+| explained_variance | 0.664    |
+| fps                | 299      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.15     |
+| policy_loss        | 0.0105   |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21530000 |
+| value_loss         | 0.0698   |
+---------------------------------
+21550000
+--------------------------------------
+| ep_len_mean_eval        | 969      |
+| ep_reward_mean_eval     | 40.5     |
+| explained_variance_eval | 0.455    |
+| fps_eval                | 455      |
+| total_timesteps_eval    | 21550080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0817   |
+| atten_encoder_loss | 0.00188  |
+| contrastive_loss   | 1.53     |
+| ep_len_mean        | 1.38e+03 |
+| ep_reward_mean     | 94.1     |
+| explained_variance | 0.96     |
+| fps                | 291      |
+| nupdates           | 1        |
+| policy_entropy     | 1.07     |
+| policy_loss        | -0.0192  |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21560080 |
+| value_loss         | 0.0156   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.124    |
+| atten_encoder_loss | 0.00215  |
+| contrastive_loss   | 1.68     |
+| ep_len_mean        | 1.36e+03 |
+| ep_reward_mean     | 94.5     |
+| explained_variance | 0.888    |
+| fps                | 290      |
+| nupdates           | 500      |
+| policy_entropy     | 0.938    |
+| policy_loss        | -0.139   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 21600000 |
+| value_loss         | 0.269    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.105    |
+| atten_encoder_loss | 0.00205  |
+| contrastive_loss   | 1.51     |
+| ep_len_mean        | 1.39e+03 |
+| ep_reward_mean     | 97.4     |
+| explained_variance | 0.609    |
+| fps                | 288      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.09     |
+| policy_loss        | -0.18    |
+| reconstruct_loss   | 0.0165   |
+| total_timesteps    | 21640000 |
+| value_loss         | 0.178    |
+---------------------------------
+21660000
+--------------------------------------
+| ep_len_mean_eval        | 986      |
+| ep_reward_mean_eval     | 42.1     |
+| explained_variance_eval | -0.194   |
+| fps_eval                | 574      |
+| total_timesteps_eval    | 21660080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.11     |
+| atten_encoder_loss | 0.00225  |
+| contrastive_loss   | 1.61     |
+| ep_len_mean        | 1.39e+03 |
+| ep_reward_mean     | 96.3     |
+| explained_variance | 0.196    |
+| fps                | 256      |
+| nupdates           | 1        |
+| policy_entropy     | 1.11     |
+| policy_loss        | 0.0428   |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 21670080 |
+| value_loss         | 0.079    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.128    |
+| atten_encoder_loss | 0.00217  |
+| contrastive_loss   | 1.32     |
+| ep_len_mean        | 1.36e+03 |
+| ep_reward_mean     | 95       |
+| explained_variance | 0.705    |
+| fps                | 292      |
+| nupdates           | 500      |
+| policy_entropy     | 1.02     |
+| policy_loss        | -0.0102  |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 21710000 |
+| value_loss         | 0.0314   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0936   |
+| atten_encoder_loss | 0.00215  |
+| contrastive_loss   | 1.5      |
+| ep_len_mean        | 1.38e+03 |
+| ep_reward_mean     | 102      |
+| explained_variance | 0.259    |
+| fps                | 297      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.09     |
+| policy_loss        | 0.184    |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 21750000 |
+| value_loss         | 0.631    |
+---------------------------------
+21770000
+--------------------------------------
+| ep_len_mean_eval        | 989      |
+| ep_reward_mean_eval     | 42.2     |
+| explained_variance_eval | 0.0338   |
+| fps_eval                | 521      |
+| total_timesteps_eval    | 21770080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0798   |
+| atten_encoder_loss | 0.00199  |
+| contrastive_loss   | 1.37     |
+| ep_len_mean        | 1.37e+03 |
+| ep_reward_mean     | 102      |
+| explained_variance | 0.863    |
+| fps                | 296      |
+| nupdates           | 1        |
+| policy_entropy     | 1.08     |
+| policy_loss        | 0.0388   |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21780080 |
+| value_loss         | 0.0167   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0939   |
+| atten_encoder_loss | 0.00194  |
+| contrastive_loss   | 1.8      |
+| ep_len_mean        | 1.37e+03 |
+| ep_reward_mean     | 109      |
+| explained_variance | 0.786    |
+| fps                | 296      |
+| nupdates           | 500      |
+| policy_entropy     | 1.07     |
+| policy_loss        | 0.0516   |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21820000 |
+| value_loss         | 0.028    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0787   |
+| atten_encoder_loss | 0.00192  |
+| contrastive_loss   | 1.78     |
+| ep_len_mean        | 1.42e+03 |
+| ep_reward_mean     | 116      |
+| explained_variance | 0.778    |
+| fps                | 293      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.16     |
+| policy_loss        | 0.00145  |
+| reconstruct_loss   | 0.0166   |
+| total_timesteps    | 21860000 |
+| value_loss         | 0.0208   |
+---------------------------------
+21880000
+--------------------------------------
+| ep_len_mean_eval        | 999      |
+| ep_reward_mean_eval     | 43.6     |
+| explained_variance_eval | 0.0198   |
+| fps_eval                | 460      |
+| total_timesteps_eval    | 21880080 |
+--------------------------------------
+[0.0]
+---------------------------------
+| atten_decoder_loss | 0.0845   |
+| atten_encoder_loss | 0.00218  |
+| contrastive_loss   | 1.45     |
+| ep_len_mean        | 1.4e+03  |
+| ep_reward_mean     | 111      |
+| explained_variance | 0.861    |
+| fps                | 323      |
+| nupdates           | 1        |
+| policy_entropy     | 1.02     |
+| policy_loss        | -0.0196  |
+| reconstruct_loss   | 0.0165   |
+| total_timesteps    | 21890080 |
+| value_loss         | 0.0862   |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.0925   |
+| atten_encoder_loss | 0.00213  |
+| contrastive_loss   | 1.32     |
+| ep_len_mean        | 1.39e+03 |
+| ep_reward_mean     | 109      |
+| explained_variance | 0.801    |
+| fps                | 292      |
+| nupdates           | 500      |
+| policy_entropy     | 1.05     |
+| policy_loss        | -0.0144  |
+| reconstruct_loss   | 0.0167   |
+| total_timesteps    | 21930000 |
+| value_loss         | 0.028    |
+---------------------------------
+---------------------------------
+| atten_decoder_loss | 0.102    |
+| atten_encoder_loss | 0.00206  |
+| contrastive_loss   | 1.66     |
+| ep_len_mean        | 1.4e+03  |
+| ep_reward_mean     | 108      |
+| explained_variance | -1.01    |
+| fps                | 297      |
+| nupdates           | 1000     |
+| policy_entropy     | 1.01     |
+| policy_loss        | 0.0656   |
+| reconstruct_loss   | 0.0165   |
+| total_timesteps    | 21970000 |
+| value_loss         | 0.156    |
+---------------------------------
+21990000
+--------------------------------------
+| ep_len_mean_eval        | 1.02e+03 |
+| ep_reward_mean_eval     | 45.3     |
+| explained_variance_eval | 0.0744   |
+| fps_eval                | 441      |
+| total_timesteps_eval    | 21990080 |
+--------------------------------------
