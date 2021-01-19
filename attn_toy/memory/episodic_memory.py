@@ -20,12 +20,18 @@ class EpisodicMemory(object):
         self.rewards = np.zeros((capacity, num_actions))
         self.dones = np.zeros((capacity, num_actions), dtype=np.bool)
         self.returns = -np.inf * np.ones((capacity, num_actions))
+        #next_id of 
         self.next_id = -1 * np.ones((capacity, num_actions))
+        
         self.curr_capacity = 0
+        #a pointer to next entry to fill
         self.pointer = 0
+        #a dict from hashcodes of obs to index
         self.state_dict = {}
+        
 
     def get_index(self, obs):
+        #save obs,return index
         obs_hash = self.hash_func(obs)
         index = self.state_dict.get(obs_hash, -1)
         if index < 0:
@@ -39,7 +45,8 @@ class EpisodicMemory(object):
                 self.pointer = (self.pointer + 1) % self.capacity
 
                 origin_hash = self.hash_func(self.obs[index])
-                self.state_dict.pop(origin_hash)
+                if origin_hash is self.state_dict.keys():
+                    self.state_dict.pop(origin_hash)
             else:
                 self.curr_capacity = min(self.curr_capacity + 1, self.capacity)
                 self.pointer = (self.pointer + 1) % self.capacity
@@ -56,9 +63,10 @@ class EpisodicMemory(object):
         return obs, obs_next
 
     def store(self, obs, action, reward, done, rtn, obs_tp1=None):
-
         # done = reward == 100  # an ad-hoc solution
         index = self.get_index(obs)
+        #index?
+        #index_tp1?
         if obs_tp1 is not None:
             index_tp1 = self.get_index(obs_tp1)
         else:
@@ -118,7 +126,9 @@ class EpisodicMemory(object):
                 continue
 
             random_next_id = np.random.randint(0, len(next_id))
+            #next_id neiboring index
             action, positive = next_id[random_next_id]
+            
 
             indexes.append(ind)
             positives.append(int(positive))
@@ -128,6 +138,7 @@ class EpisodicMemory(object):
             dones.append(self.dones[ind, action])
 
         iters = 0
+        #sample negative pairs 
         while len(negatives) < len(indexes) * neg_num:
             ind = indexes[len(negatives) // neg_num]
             pos_ind = positives[len(negatives) // neg_num]
@@ -161,7 +172,8 @@ class EpisodicMemory(object):
 
     # for debugging
     def percentage(self):
-        return 1. - np.sum(np.isinf(self.returns[:self.curr_capacity])) / self.num_actions / self.curr_capacity
+        return 1
+        #return 1. - np.sum(np.isinf(self.returns[:self.curr_capacity])) / self.num_actions / self.curr_capacity
 
     def empty(self):
         self.obs = np.empty((self.capacity,) + self.obs_shape, dtype=np.uint8)

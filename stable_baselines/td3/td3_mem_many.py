@@ -151,7 +151,6 @@ class TD3MemUpdateMany(OffPolicyRLModel):
         self.action_repr_t = None
         self.sequence = []
         self.q_base = 0
-
         if _init_setup_model:
             self.setup_model()
 

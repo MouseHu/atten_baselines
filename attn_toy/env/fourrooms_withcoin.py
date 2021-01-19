@@ -5,13 +5,20 @@ from gym import error, spaces
 from gym import core, spaces
 from gym.envs.registration import register
 import random
-from attn_toy.env.rendering import *
-from attn_toy.env.fourrooms import Fourrooms
-from copy import copy
-
+#from attn_toy.env.rendering import *
+from attn_toy.env.fourrooms import Fourrooms,FourroomsNorender
+from copy import copy,deepcopy
+import cv2
 
 class FourroomsCoin(Fourrooms):
-    def __init__(self, max_epilen=100):
+    """Fourroom game with agent,goal and coin.
+
+    ···
+    Attributes:
+    ------------
+    
+    """
+    def __init__(self, max_epilen=400):
         super(FourroomsCoin, self).__init__(max_epilen)
         self.observation_space = spaces.Discrete(self.num_pos * 2)
         self.coin = 15
@@ -21,6 +28,7 @@ class FourroomsCoin(Fourrooms):
         self.mapping = np.arange(self.num_pos * 2)
         # self.mapping = self.mapping % self.num_pos
         self.dict = np.zeros((self.observation_space.n, 3))
+        self.state_space_capacity = self.observation_space.n
         self.get_dict()
 
     def step(self, action):
@@ -32,22 +40,21 @@ class FourroomsCoin(Fourrooms):
 
         if not self.occupancy[nextcell]:
             self.currentcell = nextcell
-            if np.random.uniform() < 0.:
+            if np.random.uniform() < 0:
                 # if self.rng.uniform() < 1/3.:
                 empty_cells = self.empty_around(self.currentcell)
-                # self.currentcell = empty_cells[self.rng.randint(len(empty_cells))]
+         
                 self.currentcell = empty_cells[np.random.randint(len(empty_cells))]
 
         state = self.tostate[self.currentcell]
-        reward = 1. if (
-                               state % self.num_pos == self.coin and self.have_coin) or state % self.num_pos == self.goal else 0.
+        reward = 1. if (state % self.num_pos == self.coin and self.have_coin) or state % self.num_pos == self.goal else 0.
         if state == self.coin:
             self.have_coin = False
         if not self.have_coin:
             state += self.num_pos
         self.current_steps += 1
-        # if self.current_steps >= self.max_epilen:
-        #     self.done = True
+        if self.current_steps >= self.max_epilen:
+            self.done = True
         self.done = (state % self.num_pos == self.goal)
 
         info = {}
@@ -105,3 +112,7 @@ class FourroomsCoinDynamicNoise(FourroomsCoin):
         padding_height,padding_width = (obs.shape[0]-arr.shape[0])//2,(obs.shape[1]-arr.shape[1])//2
         obs[padding_height:padding_height+arr.shape[0],padding_width:padding_width+arr.shape[1],:] = arr
         return obs
+        
+if __name__=='__main__':
+    pass
+

@@ -1,6 +1,31 @@
 import gym
 from gym.core import Wrapper
 import numpy as np
+from gym.spaces import Box
+
+
+class NHWCWrapper(Wrapper):
+    def __init__(self, env):
+        super(NHWCWrapper, self).__init__(env)
+
+        obs_space = env.observation_space
+        assert isinstance(obs_space, Box)
+        low, high, shape = obs_space.low, obs_space.high, obs_space.shape
+        # print("www",low,high,shape)
+        new_shape = shape[1:] + (shape[0],)
+        low = low.transpose((1,2,0))
+        high = high.transpose((1,2,0))
+        self.observation_space = Box(low, high, shape=new_shape)
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        new_obs = obs.transpose((1, 2, 0))
+        return new_obs, reward, done, info
+
+    def reset(self):
+        obs = self.env.reset()
+        new_obs = obs.transpose((1, 2, 0))
+        return new_obs
 
 
 class TimestepWrapper(Wrapper):

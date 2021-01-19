@@ -57,13 +57,11 @@ class PPO2Repr(ActorCriticRLModel):
 
     def __init__(self, policy, env, test_env=None, gamma=0.99, n_steps=128, ent_coef=0.01, learning_rate=2.5e-4,
                  vf_coef=0.5,
-                 repr_coef=1., contra_coef=1., atten_encoder_coef=5 * 1. / 256, atten_decoder_coef=1.,
+                 repr_coef=1, contra_coef=1., atten_encoder_coef=5 * 1. / 256, atten_decoder_coef=1.,
                  regularize_coef=1e-4,
                  max_grad_norm=0.5, lam=0.95, nminibatches=4, noptepochs=4, cliprange=0.2, cliprange_vf=None,
-                 verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
-                 full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None, c_loss_type="origin", use_attention=True,
-                 replay_buffer=None):
-
+                 verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,                 full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None, c_loss_type="origin",use_attention=True, replay_buffer=None):
+        #repr_coef switch
         self.learning_rate = learning_rate
         self.cliprange = cliprange
         self.cliprange_vf = cliprange_vf
@@ -869,7 +867,7 @@ class Runner(AbstractEnvRunner):
     def _run(self):
         """
         Run a learning step of the model
-
+        
         :return:
             - observations: (np.ndarray) the observations
             - rewards: (np.ndarray) the rewards
@@ -880,6 +878,7 @@ class Runner(AbstractEnvRunner):
             - states: (np.ndarray) the internal states of the recurrent policies
             - infos: (dict) the extra information of the model
         """
+
         # mb stands for minibatch
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs, mb_attention = [], [], [], [], [], [], []
         mb_featuremap = []
