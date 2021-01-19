@@ -95,8 +95,8 @@ def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, 
     train_env.close()
     test_env.close()
 
-def train_ppo2(env_id, num_timesteps, seed, policy, num_env, variation, repr_coef=1.,
-          use_attention=True, save_interval=100000,begin_repr=1.):
+def train_a2c(env_id, num_timesteps, seed, policy, num_env, variation,
+          save_interval=100000):
     """
     Train A2C model for atari environment, for testing purposes
 
@@ -115,8 +115,11 @@ def train_ppo2(env_id, num_timesteps, seed, policy, num_env, variation, repr_coe
     #test_env = VecFrameStack(make_atari_env(env_id, num_env, seed, variation=variation), 4)
 
 
-    model = PPO2(policy_fn, train_env,seed=seed,verbose=1)
+    model = A2C(policy_fn, train_env,seed=seed,verbose=1,tensorboard_log='~/atten_baselines/experiments/a2c2')
     epochs = num_timesteps // save_interval
+    save_path = os.path.join(os.getenv('OPENAI_LOGDIR'), "save")
+    if not os.path.isdir(save_path):
+        os.mkdir(save_path)
     for epoch in range(epochs):
         model.learn(total_timesteps=save_interval, reset_num_timesteps=epoch == 0)
         print(model.num_timesteps)
@@ -150,8 +153,8 @@ def main():
                         help='Path to load model')
     args = parser.parse_args()
     logger.configure()
-    # train_ppo2(args.env, num_timesteps=args.num_timesteps, seed=args.seed, policy='cnn', \
-    #     num_env=4, variation=args.variation)
+    # train_a2c(args.env, num_timesteps=args.num_timesteps, seed=args.seed, policy='cnn', \
+    #     num_env=16, variation=args.variation)
     train(args.env, num_timesteps=args.num_timesteps, seed=args.seed, policy=args.policy, lr_schedule=args.lr_schedule,
           num_env=16, variation=args.variation, repr_coef=args.repr_coef,learning_rate=args.lr,load_path=args.load_path,
           use_attention=args.use_attention,begin_repr=args.repr_coef,vf_coef=args.vf_coef,encoder_coef=args.encoder_coef)

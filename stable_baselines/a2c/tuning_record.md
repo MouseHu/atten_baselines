@@ -40,6 +40,11 @@ lr=1e-4:也能收敛，但是慢
 --repr_coef=0.1:更慢了
 --repr_coef=0.1 --encoder_coef=0.001：encoder提高了3倍，结果是几乎不work
 
+不加repr调lr:
+lr=2e-4，也能收敛，但慢
+lr=5e-4、7e-4不能收敛
+
+调lr和vf:
 
 
 
