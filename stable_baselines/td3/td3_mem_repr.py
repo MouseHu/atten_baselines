@@ -65,7 +65,8 @@ class TD3MemRepr(OffPolicyRLModel):
                  buffer_size=50000,
                  learning_starts=100, train_freq=100, gradient_steps=100, batch_size=128,
                  tau=0.005, policy_delay=2, contrastive_train_freq=1, action_noise=None,
-                 nb_eval_steps=1000, latent_dim=32,
+                 nb_eval_steps=1000,alpha=0.5,beta=-1,num_q=4,iterative_q=True,
+                 latent_dim=32,
                  target_policy_noise=0.2, target_noise_clip=0.5, start_policy_learning=0,
                  random_exploration=0.0, verbose=0, tensorboard_log=None,
                  separate_repr=True,
@@ -99,6 +100,11 @@ class TD3MemRepr(OffPolicyRLModel):
         self.eval_env = eval_env
         self.nb_eval_steps = nb_eval_steps
         self.separate_repr = separate_repr
+        self.alpha = alpha
+        self.beta = beta
+        self.num_q = num_q
+        self.iterative_q=iterative_q
+
         self.graph = None
         self.replay_buffer = None
         self.sess = None

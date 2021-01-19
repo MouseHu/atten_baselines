@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+import numpy as np
 from stable_baselines.common import tf_util, SetVerbosity
 from stable_baselines.common.buffers import ReplayBuffer
 from stable_baselines.td3.episodic_memory import EpisodicMemory
@@ -53,16 +53,17 @@ class TD3MemDDQ(TD3MemUpdateMany):
     def __init__(self, policy, env, eval_env, gamma=0.99, learning_rate=3e-4,
                  buffer_size=50000,
                  learning_starts=100, train_freq=100, gradient_steps=100, batch_size=128,
-                 tau=0.005, policy_delay=2, action_noise=None,
-                 nb_eval_steps=1000,
+                 tau=0.005, policy_delay=2, qvalue_delay=1, action_noise=None,
+                 nb_eval_steps=1000, alpha=0.5, beta=-1, num_q=4, iterative_q=True,
                  target_policy_noise=0.2, target_noise_clip=0.5, start_policy_learning=0,
                  random_exploration=0.0, verbose=0, tensorboard_log=None,
                  _init_setup_model=True, policy_kwargs=None,
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
         print("TD3 Mem DDQ Agent Here")
-        self.iterative_q = True
-        if self.iterative_q:
+
+        if iterative_q:
             gradient_steps *= 2
+            policy_delay *= 2
 
         self.train_values_op_1 = None
         self.train_values_op_2 = None
@@ -70,18 +71,17 @@ class TD3MemDDQ(TD3MemUpdateMany):
         self.qf2_loss = None
         self.step_ops_1 = None
         self.step_ops_2 = None
-
+        self.qfs_loss = None
+        self.num_q = 4  # or 2
         super(TD3MemDDQ, self).__init__(policy, env, eval_env, gamma, learning_rate,
                                         buffer_size,
                                         learning_starts, train_freq, gradient_steps, batch_size,
-                                        tau, policy_delay, action_noise,
-                                        nb_eval_steps,
+                                        tau, policy_delay, qvalue_delay, action_noise,
+                                        nb_eval_steps, alpha, beta, num_q, iterative_q,
                                         target_policy_noise, target_noise_clip, start_policy_learning,
                                         random_exploration, verbose, tensorboard_log,
                                         _init_setup_model, policy_kwargs,
                                         full_tensorboard_log, seed, n_cpu_tf_sess)
-
-
 
     def setup_model(self):
         # print("setup model ",self.observation_space.shape)
@@ -111,7 +111,8 @@ class TD3MemDDQ(TD3MemUpdateMany):
                     self.rewards_ph = tf.placeholder(tf.float32, shape=(None, 1), name='rewards')
                     self.actions_ph = tf.placeholder(tf.float32, shape=(None,) + self.action_space.shape,
                                                      name='actions')
-                    self.qvalues_ph = tf.placeholder(tf.float32, shape=(None, 1),
+                    self.qvalues_ph = tf.placeholder(tf.float32,
+                                                     shape=(None, self.num_q // 2 * (1 if self.iterative_q else 2)),
                                                      name='qvalues')
                     self.learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate_ph")
 
@@ -120,11 +121,12 @@ class TD3MemDDQ(TD3MemUpdateMany):
                     self.policy_out = policy_out = self.policy_tf.make_actor(self.processed_obs_ph)
                     # Use two Q-functions to improve performance by reducing overestimation bias
                     qfs = self.policy_tf.make_many_critics(self.processed_obs_ph, self.actions_ph,
-                                                           scope="buffer_values_fn")
+                                                           scope="buffer_values_fn", num_q=self.num_q)
                     # Q value when following the current policy
                     self.qfs = qfs
                     self.qfs_pi = self.policy_tf.make_many_critics(self.processed_obs_ph,
-                                                                   policy_out, scope="buffer_values_fn", reuse=True)
+                                                                   policy_out, scope="buffer_values_fn",
+                                                                   num_q=self.num_q, reuse=True)
 
                 with tf.variable_scope("target", reuse=False):
                     # Create target networks
@@ -133,13 +135,14 @@ class TD3MemDDQ(TD3MemUpdateMany):
                     qfs_target = self.target_policy_tf.make_many_critics(self.processed_next_obs_ph,
                                                                          target_policy_out,
                                                                          scope="buffer_values_fn",
+                                                                         num_q=self.num_q,
                                                                          reuse=False)
 
                     self.qfs_target = qfs_target
                     self.qfs_target_no_pi = self.target_policy_tf.make_many_critics(
                         self.processed_obs_ph,
                         self.actions_ph,
-                        scope="buffer_values_fn", reuse=True)
+                        scope="buffer_values_fn", num_q=self.num_q, reuse=True)
 
                 with tf.variable_scope("loss", reuse=False):
                     # Take the min of the two target Q-Values (clipped Double-Q Learning)
@@ -155,17 +158,23 @@ class TD3MemDDQ(TD3MemUpdateMany):
                     # Compute Q-Function loss
 
                     # Method 2
-                    alpha = .5
+                    alpha = self.alpha
+                    if alpha > 1:
+                        alpha = 1. / alpha
+                        sign = 1
+                    else:
+                        sign = -1
                     qfs_loss = tf.reduce_mean(
-                        tf.nn.leaky_relu(-self.qvalues_ph + qfs - self.q_base, alpha=alpha) ** 2)
+                        tf.nn.leaky_relu(sign * (self.qvalues_ph - qfs + self.q_base), alpha=alpha) ** 2)
+                    self.qfs_loss = qfs_loss
 
                     qf1 = self.qfs[0, :]
                     qf2 = self.qfs[1, :]
 
                     qf1_loss = tf.reduce_mean(
-                        tf.nn.leaky_relu(-self.qvalues_ph + qf1 - self.q_base, alpha=alpha) ** 2)
+                        tf.nn.leaky_relu(sign * (self.qvalues_ph - qf1 + self.q_base), alpha=alpha) ** 2)
                     qf2_loss = tf.reduce_mean(
-                        tf.nn.leaky_relu(-self.qvalues_ph + qf2 - self.q_base, alpha=alpha) ** 2)
+                        tf.nn.leaky_relu(sign * (self.qvalues_ph - qf2 + self.q_base), alpha=alpha) ** 2)
 
                     qvalues_losses = qfs_loss
 
@@ -245,15 +254,19 @@ class TD3MemDDQ(TD3MemUpdateMany):
                                                 obs_ph=self.processed_next_obs_ph,
                                                 action_ph=self.actions_ph, sess=self.sess, gamma=self.gamma)
 
-    def _train_step(self, step, writer, learning_rate, update_policy):
+    def _train_step(self, step, writer, learning_rate, update_policy, update_q):
         # Sample a batch from the replay buffer
         # batch = self.replay_buffer.sample(self.batch_size, env=self._vec_normalize_env)
         # cur_time = time.time()
         batch = self.memory.sample(self.batch_size, mix=False)
         if batch is None:
-            return 0, 0
+            return 0
         batch_obs, batch_actions, batch_rewards, batch_next_obs, batch_dones, batch_returns = batch['obs0'], batch[
             'actions'], batch['rewards'], batch['obs1'], batch['terminals1'], batch['return']
+        if self.num_q == 4:
+            batch_returns = np.repeat(batch_returns, 2, axis=1)
+        if self.iterative_q:
+            batch_returns = batch_returns[:, :self.num_q // 2] if step % 2 == 0 else batch_returns[:, self.num_q // 2:]
         # print("Sample time: ",time.time()-cur_time)
         # cur_time = time.time()
         feed_dict = {
@@ -266,14 +279,20 @@ class TD3MemDDQ(TD3MemUpdateMany):
             self.qvalues_ph: batch_returns.reshape(self.batch_size, -1)
         }
         # print("training ",batch_obs.shape)
-        if not self.iterative_q:
-            step_ops = self.step_ops
+        if update_q:
+            if not self.iterative_q:
+                step_ops = self.step_ops
+            else:
+                step_ops = self.step_ops_1 if step % 2 == 0 else self.step_ops_2
         else:
-            step_ops = self.step_ops_1 if step % 2 == 0 else self.step_ops_2
+            step_ops = [self.qfs_loss]
+
         if update_policy:
             # Update policy and target networks
             step_ops = step_ops + [self.policy_train_op, self.policy_loss]
 
+        if not step_ops:
+            return 0  # not updating q nor policy
         # Do one gradient step
         # and optionally compute log for tensorboard
         if writer is not None:

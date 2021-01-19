@@ -60,7 +60,7 @@ class TD3(OffPolicyRLModel):
     def __init__(self, policy, env, eval_env, gamma=0.99, learning_rate=3e-4, buffer_size=50000,
                  learning_starts=100, train_freq=100, gradient_steps=100, batch_size=128,
                  tau=0.005, policy_delay=2, action_noise=None,
-                 nb_eval_steps=1000,
+                 nb_eval_steps=1000,alpha=0.5,beta=-1,num_q=4,iterative_q=True,
                  target_policy_noise=0.2, target_noise_clip=0.5,
                  random_exploration=0.0, verbose=0, tensorboard_log=None,
                  _init_setup_model=True, policy_kwargs=None,
@@ -85,6 +85,11 @@ class TD3(OffPolicyRLModel):
         self.target_policy_noise = target_policy_noise
         self.eval_env = eval_env
         self.nb_eval_steps = nb_eval_steps
+        self.alpha = alpha
+        self.beta = beta
+        self.num_q = num_q
+        self.iterative_q=iterative_q
+
         self.graph = None
         self.replay_buffer = None
         self.sess = None
@@ -470,6 +475,7 @@ class TD3(OffPolicyRLModel):
                                      safe_mean([x - y for x, y in zip(eval_q, eval_return)]))
                         logger.logkv('eval_abs_qs_difference',
                                      safe_mean([abs(x - y) for x, y in zip(eval_q, eval_return)]))
+                        logger.logkv("total timesteps", self.num_timesteps)
                         logger.dumpkvs()
 
                 episode_rewards[-1] += reward_

@@ -7,7 +7,7 @@ import tensorflow as tf
 from stable_baselines import logger
 from stable_baselines.common import tf_util, OffPolicyRLModel, SetVerbosity, TensorboardWriter
 from stable_baselines.common.vec_env import VecEnv
-from stable_baselines.common.math_util import safe_mean, unscale_action, scale_action,reward2return
+from stable_baselines.common.math_util import safe_mean, unscale_action, scale_action, reward2return
 from stable_baselines.common.schedules import get_schedule_fn
 from stable_baselines.common.buffers import ReplayBuffer
 from stable_baselines.td3.policies import TD3Policy
@@ -62,8 +62,8 @@ class TD3MemUpdateMany(OffPolicyRLModel):
     def __init__(self, policy, env, eval_env, gamma=0.99, learning_rate=3e-4,
                  buffer_size=50000,
                  learning_starts=100, train_freq=100, gradient_steps=100, batch_size=128,
-                 tau=0.005, policy_delay=2, action_noise=None,
-                 nb_eval_steps=1000,
+                 tau=0.005, policy_delay=2, qvalue_delay=1, action_noise=None,
+                 nb_eval_steps=1000, alpha=0.5, beta=-1, num_q=4, iterative_q=True,
                  target_policy_noise=0.2, target_noise_clip=0.5, start_policy_learning=0,
                  random_exploration=0.0, verbose=0, tensorboard_log=None,
                  _init_setup_model=True, policy_kwargs=None,
@@ -87,10 +87,16 @@ class TD3MemUpdateMany(OffPolicyRLModel):
         self.action_noise = action_noise
         self.random_exploration = random_exploration
         self.policy_delay = policy_delay
+        self.qvalue_delay = qvalue_delay
         self.target_noise_clip = target_noise_clip
         self.target_policy_noise = target_policy_noise
         self.eval_env = eval_env
         self.nb_eval_steps = nb_eval_steps
+        self.alpha = alpha
+        self.beta = beta
+        self.num_q = num_q
+        self.iterative_q = iterative_q
+
         self.graph = None
         self.replay_buffer = None
         self.sess = None
@@ -308,7 +314,7 @@ class TD3MemUpdateMany(OffPolicyRLModel):
                                              q_func=self.qfs_target, repr_func=None, obs_ph=self.processed_next_obs_ph,
                                              action_ph=self.actions_ph, sess=self.sess, gamma=self.gamma)
 
-    def _train_step(self, step, writer, learning_rate, update_policy):
+    def _train_step(self, step, writer, learning_rate, update_policy, update_q):
         # Sample a batch from the replay buffer
         # batch = self.replay_buffer.sample(self.batch_size, env=self._vec_normalize_env)
         # cur_time = time.time()
@@ -329,11 +335,15 @@ class TD3MemUpdateMany(OffPolicyRLModel):
             self.qvalues_ph: batch_returns.reshape(self.batch_size, -1)
         }
         # print("training ",batch_obs.shape)
-        step_ops = self.step_ops
+        if update_q:
+            step_ops = self.step_ops
+        else:
+            step_ops = []
         if update_policy:
             # Update policy and target networks
             step_ops = step_ops + [self.policy_train_op, self.policy_loss]
-
+        if not step_ops:
+            return 0, 0  # not updating q nor policy
         # Do one gradient step
         # and optionally compute log for tensorboard
         if writer is not None:
@@ -473,7 +483,7 @@ class TD3MemUpdateMany(OffPolicyRLModel):
                     cur_time = time.time()
                     callback.on_rollout_end()
                     self.sess.run(self.target_ops)
-                    self.memory.update_memory(self.q_base)
+                    self.memory.update_memory(self.q_base, beta=self.beta)
                     update_time += time.time() - cur_time
                     cur_time = time.time()
                     mb_infos_vals = []
@@ -494,8 +504,9 @@ class TD3MemUpdateMany(OffPolicyRLModel):
                         # if_train_policy = ((step + grad_step) % self.policy_delay == 0)
                         if_train_policy = (step > self.start_policy_learning) and \
                                           ((step + grad_step) % self.policy_delay == 0)
+                        if_train_q = (step + grad_step) % self.qvalue_delay == 0
                         mb_infos_vals.append(
-                            self._train_step(step, writer, current_lr, if_train_policy))
+                            self._train_step(step, writer, current_lr, if_train_policy, if_train_q))
 
                     # Log losses and entropy, useful for monitor training
                     if len(mb_infos_vals) > 0:
@@ -540,7 +551,7 @@ class TD3MemUpdateMany(OffPolicyRLModel):
                                 self.eval_ep_info_buf.extend([eval_maybe_ep_info])
                             eval_step += 1
                             if eval_done:
-                                eval_return=reward2return(eval_return)
+                                eval_return = reward2return(eval_return)
                                 if not isinstance(self.env, VecEnv):
                                     eval_obs = self.eval_env.reset()
                                 eval_episode_rewards.append(eval_episode_reward)
@@ -565,9 +576,10 @@ class TD3MemUpdateMany(OffPolicyRLModel):
                         logger.logkv('eval_discount_q', np.mean(eval_discount_episode_rewards))
                         logger.logkv('eval_qs', np.mean(eval_q))
                         logger.logkv('eval_qs_difference',
-                                     safe_mean([x-y for x,y in zip(eval_q,eval_return)]))
+                                     safe_mean([x - y for x, y in zip(eval_q, eval_return)]))
                         logger.logkv('eval_abs_qs_difference',
-                                     safe_mean([abs(x - y) for x, y in zip(eval_q,eval_return)]))
+                                     safe_mean([abs(x - y) for x, y in zip(eval_q, eval_return)]))
+                        logger.logkv("total timesteps", self.num_timesteps)
                         logger.dumpkvs()
 
                 episode_rewards[-1] += reward_
@@ -607,9 +619,9 @@ class TD3MemUpdateMany(OffPolicyRLModel):
                     # logger.logkv('q4_mean', safe_mean([x for x in q4s]))
                     logger.logkv('discount_q', discount_episodic_reward)
                     logger.logkv('qs_difference',
-                                 safe_mean([x-y for x,y in zip(qs_buffer,episode_returns)]))
+                                 safe_mean([x - y for x, y in zip(qs_buffer, episode_returns)]))
                     logger.logkv('qs_abs_difference',
-                                 safe_mean([abs(x-y) for x,y in zip(qs_buffer,episode_returns)]))
+                                 safe_mean([abs(x - y) for x, y in zip(qs_buffer, episode_returns)]))
                     # diff_min, diff_mean, diff_max = self.memory.compute_statistics()
                     # logger.logkv("buffer_diff_min", diff_min)
                     # logger.logkv("buffer_diff_mean", diff_mean)

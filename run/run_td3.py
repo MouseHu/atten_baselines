@@ -92,7 +92,7 @@ def run(env_type, env_id, seed, noise_type, layer_norm, evaluation, agent, delay
             pass
         elif 'adaptive-param' in current_noise_type:
             _, stddev = current_noise_type.split('_')
-            param_noise = AdaptiveParamNoiseSpec(initial_stddev=float(stddev), desired_action_stddev=float(stddev))
+            action_noise = AdaptiveParamNoiseSpec(initial_stddev=float(stddev), desired_action_stddev=float(stddev))
         elif 'normal' in current_noise_type:
             _, stddev = current_noise_type.split('_')
             action_noise = NormalActionNoise(mean=np.zeros(nb_actions), sigma=float(stddev) * np.ones(nb_actions))
@@ -138,18 +138,22 @@ def run(env_type, env_id, seed, noise_type, layer_norm, evaluation, agent, delay
                      learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=2)
     else:
         model = model_func(policy=policy, env=env, eval_env=eval_env, gamma=gamma,
+                           alpha=kwargs['alpha'], beta=kwargs['beta'], iterative_q=kwargs['iterative_q'],
+                           num_q=kwargs['num_q'],
                            action_noise=action_noise, buffer_size=int(1e5), verbose=2, n_cpu_tf_sess=10)
-    model.learn(total_timesteps=num_timesteps)
-    if models == TD3Mem:
-        model.memory.plot()
-        model.memory.save(os.getenv("OPENAI_LOGDIR"))
-    else:
-        model.replay_buffer.save(os.getenv("OPENAI_LOGDIR"))
-    env.close()
-    if eval_env is not None:
-        eval_env.close()
+        print("model building finished")
+        model.learn(total_timesteps=num_timesteps)
 
-    logger.info('total runtime: {}s'.format(time.time() - start_time))
+        if models == TD3Mem:
+            model.memory.plot()
+            model.memory.save(os.getenv("OPENAI_LOGDIR"))
+        else:
+            model.replay_buffer.save(os.getenv("OPENAI_LOGDIR"))
+        env.close()
+        if eval_env is not None:
+            eval_env.close()
+
+        logger.info('total runtime: {}s'.format(time.time() - start_time))
 
 
 def parse_args():
@@ -197,6 +201,11 @@ def parse_args():
     parser.add_argument('--frame_stack', default=3, type=int)
     parser.add_argument('--encoder_type', default='vector', type=str)
 
+    # ddq
+    parser.add_argument('--alpha', default=0.5, type=float)
+    parser.add_argument('--beta', default=-1, type=float)
+    parser.add_argument('--num_q', default=4, type=int)
+    boolean_flag(parser, 'iterative_q', default=False)
     args = parser.parse_args()
     dict_args = vars(args)
     return dict_args
