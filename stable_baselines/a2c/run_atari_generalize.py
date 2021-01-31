@@ -76,20 +76,20 @@ def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, 
         model = A2CRepr(policy_fn, train_env, test_env,learning_rate=learning_rate,vf_coef=vf_coef,lr_schedule=lr_schedule, 
         seed=seed, repr_coef=repr_coef,atten_encoder_coef=encoder_coef,
                         verbose=1, use_attention=use_attention)
-
     else:
         model = A2CRepr.load(load_path=load_path)
         model.set_env(test_env)
         print("load model successfully")
     epochs = num_timesteps // save_interval
+    save_path = os.path.join(os.getenv('OPENAI_LOGDIR'), "save")
+    if not os.path.isdir(save_path):
+        os.mkdir(save_path)
     for epoch in range(epochs):
         model.learn(total_timesteps=save_interval, reset_num_timesteps=epoch == 0, print_attention_map=True,
                     repr_coef=[repr_coef] if epoch > epochs * begin_repr else [0.])
         print(model.num_timesteps)
-        save_path = os.path.join(os.getenv('OPENAI_LOGDIR'), "save")
-        if not os.path.isdir(save_path):
-            os.mkdir(save_path)
-        model.eval(int(save_interval/10), print_attention_map=True, filedir=None)
+
+        #model.eval(int(save_interval/10), print_attention_map=True, filedir=None)
         model.save(os.path.join(save_path, "model_{}.pkl".format((epoch + 1) * save_interval)))
     # model.learn(total_timesteps=int(num_timesteps * 1.1))
     train_env.close()
@@ -115,7 +115,7 @@ def train_a2c(env_id, num_timesteps, seed, policy, num_env, variation,
     #test_env = VecFrameStack(make_atari_env(env_id, num_env, seed, variation=variation), 4)
 
 
-    model = A2C(policy_fn, train_env,seed=seed,verbose=1,tensorboard_log='~/atten_baselines/experiments/a2c2')
+    model = A2C(policy_fn, train_env,seed=seed,verbose=1,tensorboard_log='/home/lzy/atten_baselines/experiments/a2c')
     epochs = num_timesteps // save_interval
     save_path = os.path.join(os.getenv('OPENAI_LOGDIR'), "save")
     if not os.path.isdir(save_path):

@@ -81,7 +81,7 @@ class A2CRepr(ActorCriticRLModel):
         print("contra_coef \t{}".format(contra_coef))
         print("atten_encoder_coef \t{}".format(atten_encoder_coef))
         print("atten_decoder_coef \t{}".format(atten_decoder_coef))
-
+        print("vf_coef \t{}".format(vf_coef))
         self.n_steps = n_steps
         self.gamma = gamma
         self.vf_coef = vf_coef
@@ -149,6 +149,7 @@ class A2CRepr(ActorCriticRLModel):
         return policy.obs_ph, self.actions_ph, policy.deterministic_action
 
     def setup_model(self):
+        last_channel=64
         with SetVerbosity(self.verbose):
 
             assert issubclass(self.policy, ActorCriticPolicy), "Error: the input policy for the A2C model must be an " \
@@ -167,11 +168,13 @@ class A2CRepr(ActorCriticRLModel):
                     n_batch_step = self.n_envs
                     n_batch_train = self.n_envs * self.n_steps
                 
+                
                 step_model = self.policy(self.sess, self.observation_space, self.action_space, self.n_envs, 1,
                                          n_batch_step, reuse=False, **self.policy_kwargs)
 
-                with tf.variable_scope("loss", reuse=False):
+                with tf.variable_scope("loss_test", reuse=False):
                     self.target_actions_ph = step_model.pdtype.sample_placeholder([None], name="action_ph")
+
                 with tf.variable_scope("train_model", reuse=True,
                                        custom_getter=tf_util.outer_scope_getter("train_model")):
                     # train_model=positive_model=negative_model=target_model=attention_model=step_model
@@ -185,6 +188,7 @@ class A2CRepr(ActorCriticRLModel):
                                                self.n_steps, n_batch_train, reuse=True, **self.policy_kwargs)
                     attention_model = self.policy(self.sess, self.observation_space, self.action_space, self.n_envs,
                                                   self.n_steps, n_batch_train, reuse=True, **self.policy_kwargs)
+                    
                     with tf.variable_scope("model/feature/predict") as scope:
                         # print(self.actions_ph.shape)
                         flat_residue_feature_map = tf.layers.flatten(target_model.residue_feature_map)
@@ -198,13 +202,13 @@ class A2CRepr(ActorCriticRLModel):
                     img_size = self.env.observation_space.shape[1]
                     with tf.variable_scope("model/feature/recon",reuse=tf.AUTO_REUSE):
                         self.decoded_image_target = deconv_decoder(
-                            tf.reshape(target_model.feature_map, (-1, 10, 10, 16)), input_size=img_size // 8,
+                            tf.reshape(target_model.feature_map, (-1, 10, 10, last_channel)), input_size=img_size // 8,
                             img_size=img_size,reuse=False)
 
                         combined_feature_map = target_model.residue_feature_map + self.predicted_feature_map
 
                         self.decoded_image_predict = deconv_decoder(
-                            tf.reshape(combined_feature_map, (-1, 10, 10, 16)), input_size=img_size // 8,
+                            tf.reshape(combined_feature_map, (-1, 10, 10, last_channel)), input_size=img_size // 8,
                             img_size=img_size, reuse=True) / 84
 
                 with tf.variable_scope("loss", reuse=False):
@@ -409,7 +413,7 @@ class A2CRepr(ActorCriticRLModel):
                     # image * 255)
                     recon * 255)
 
-    def learn(self, total_timesteps, callback=None, log_interval=500, tb_log_name="A2C",
+    def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name="A2C",
               reset_num_timesteps=True, begin_eval=False, print_attention_map=True, filedir=None, repr_coef=[1.]):
         print(repr_coef)
         new_tb_log = self._init_num_timesteps(reset_num_timesteps)
@@ -514,7 +518,7 @@ class A2CRepr(ActorCriticRLModel):
             self._test_runner = self._make_test_runner()
         return self._test_runner
 
-    def eval(self, total_timesteps=10000, callback=None, log_interval=500, tb_log_name="A2C",
+    def eval(self, total_timesteps=10000, callback=None, log_interval=100, tb_log_name="A2C",
              print_attention_map=False, filedir=None):
 
         new_tb_log = self._init_num_timesteps(False)

@@ -109,7 +109,7 @@ def attention_cnn_exposed(scaled_images, **kwargs):
                                    padding='valid', weights_initializer=tf.contrib.layers.xavier_initializer(),
                                    biases_initializer=tf.contrib.layers.xavier_initializer())
         out = tf.pad(out, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
-        out = layers.convolution2d(out, num_outputs=16, kernel_size=3, stride=1, activation_fn=tf.nn.relu,
+        out = layers.convolution2d(out, num_outputs=64, kernel_size=3, stride=1, activation_fn=tf.nn.relu,
                                    padding='valid', weights_initializer=tf.contrib.layers.xavier_initializer(),
                                    biases_initializer=tf.contrib.layers.xavier_initializer())
 
