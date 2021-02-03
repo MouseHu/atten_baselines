@@ -62,8 +62,8 @@ class TD3MemUpdateMany(OffPolicyRLModel):
     def __init__(self, policy, env, eval_env, gamma=0.99, learning_rate=3e-4,
                  buffer_size=50000,
                  learning_starts=100, train_freq=100, gradient_steps=100, batch_size=128,
-                 tau=0.005, policy_delay=2, qvalue_delay=1, action_noise=None,
-                 nb_eval_steps=1000, alpha=0.5, beta=-1, num_q=4, iterative_q=True,
+                 tau=0.005, policy_delay=2, qvalue_delay=1, max_step=1000, action_noise=None,
+                 nb_eval_steps=5, alpha=0.5, beta=-1, num_q=4, iterative_q=True, reward_scale=1.,
                  target_policy_noise=0.2, target_noise_clip=0.5, start_policy_learning=0,
                  random_exploration=0.0, verbose=0, tensorboard_log=None,
                  _init_setup_model=True, policy_kwargs=None,
@@ -80,6 +80,7 @@ class TD3MemUpdateMany(OffPolicyRLModel):
         self.learning_starts = learning_starts
         self.train_freq = train_freq
         self.batch_size = batch_size
+        self.max_step = max_step
         self.tau = tau
         self.gradient_steps = gradient_steps
         self.gamma = gamma
@@ -96,6 +97,7 @@ class TD3MemUpdateMany(OffPolicyRLModel):
         self.beta = beta
         self.num_q = num_q
         self.iterative_q = iterative_q
+        self.reward_scale = reward_scale
 
         self.graph = None
         self.replay_buffer = None
@@ -151,6 +153,7 @@ class TD3MemUpdateMany(OffPolicyRLModel):
         self.action_repr_t = None
         self.sequence = []
         self.q_base = 0
+
         if _init_setup_model:
             self.setup_model()
 
@@ -307,11 +310,12 @@ class TD3MemUpdateMany(OffPolicyRLModel):
 
                 self.summary = tf.summary.merge_all()
 
-                self.memory = EpisodicMemory(int(1e5), state_dim=1,
+                self.memory = EpisodicMemory(self.buffer_size, state_dim=1,
                                              obs_space=self.observation_space,
                                              action_shape=self.action_space.shape,
                                              q_func=self.qfs_target, repr_func=None, obs_ph=self.processed_next_obs_ph,
-                                             action_ph=self.actions_ph, sess=self.sess, gamma=self.gamma)
+                                             action_ph=self.actions_ph, sess=self.sess, gamma=self.gamma,
+                                             max_step=self.max_step)
 
     def _train_step(self, step, writer, learning_rate, update_policy, update_q):
         # Sample a batch from the replay buffer
@@ -391,13 +395,14 @@ class TD3MemUpdateMany(OffPolicyRLModel):
                 obs_ = self._vec_normalize_env.get_original_obs().squeeze()
             n_updates = 0
             infos_values = []
+            eval_episode_rewards = []
 
             train_time, env_time, act_time, update_time = 0, 0, 0, 0
 
             callback.on_training_start(locals(), globals())
             callback.on_rollout_start()
 
-            for step in range(total_timesteps):
+            for step in range(total_timesteps + 1):
                 # Before training starts, randomly sample actions
                 # from a uniform distribution for better exploration.
                 # Afterwards, use the learned policy
@@ -423,6 +428,7 @@ class TD3MemUpdateMany(OffPolicyRLModel):
 
                 new_obs, reward, done, info = self.env.step(unscaled_action)
                 truly_done = info.get('truly_done', done)
+                # truly_done = done
                 self.num_timesteps += 1
 
                 # Only stop training if return value is False, not when it is None. This is for backwards
@@ -449,9 +455,11 @@ class TD3MemUpdateMany(OffPolicyRLModel):
                 current_steps += 1
 
                 # Store transition in the replay buffer.
+                reward_ = reward_ * self.reward_scale
                 self.replay_buffer_add(obs_, action, reward_, new_obs_, done, info)
                 self.sequence.append(
                     (obs_, action, self.state_repr_t, q, reward_, truly_done, False))
+                episode_rewards[-1] += reward_
                 env_time += time.time() - cur_time
                 cur_time = time.time()
                 if done:
@@ -519,75 +527,16 @@ class TD3MemUpdateMany(OffPolicyRLModel):
 
                 if step % eval_interval == 0:
                     # Evaluate.
-                    eval_episode_rewards = []
-                    eval_discount_episode_rewards = []
-                    eval_step = 0
+                    self.evaluate(self.nb_eval_steps)
 
-                    if self.eval_env is not None:
-                        eval_episode_reward = 0.
-                        eval_discount_episode_reward = 0.
-                        eval_obs = self.eval_env.reset()
-                        eval_q = []
-                        eval_return = []
-                        for _ in range(self.nb_eval_steps):
-                            if step >= total_timesteps:
-                                return self
-
-                            eval_action = self.policy_tf.step(eval_obs[None]).flatten()
-                            unscaled_action = unscale_action(self.action_space, eval_action)
-                            eval_obs, eval_r, eval_done, eval_info = self.eval_env.step(unscaled_action)
-                            eval_episode_reward += eval_r
-                            eval_discount_episode_reward += eval_r * self.gamma ** eval_step
-                            eval_return.append(eval_r)
-                            qs = self.sess.run(self.qfs_target_no_pi,
-                                               feed_dict={self.observations_ph: eval_obs[None],
-                                                          self.actions_ph: [action]})
-                            q = np.min(qs).item()
-                            eval_q.append(q)
-                            # Retrieve reward and episode length if using Monitor wrapper
-                            eval_maybe_ep_info = eval_info.get('episode')
-                            if eval_maybe_ep_info is not None:
-                                self.eval_ep_info_buf.extend([eval_maybe_ep_info])
-                            eval_step += 1
-                            if eval_done:
-                                eval_return = reward2return(eval_return)
-                                if not isinstance(self.env, VecEnv):
-                                    eval_obs = self.eval_env.reset()
-                                eval_episode_rewards.append(eval_episode_reward)
-                                eval_discount_episode_rewards.append(eval_discount_episode_reward)
-                                eval_episode_reward = 0.
-                                eval_discount_episode_reward = 0.
-                                eval_step = 0.
-                                eval_return = []
-                                eval_q = []
-                        if len(eval_episode_rewards[-101:-1]) == 0:
-                            eval_mean_reward = -np.inf
-                        else:
-                            eval_mean_reward = round(float(np.mean(eval_episode_rewards[-101:-1])), 1)
-
-                        logger.logkv("eval mean 100 episode reward", eval_mean_reward)
-                        if len(self.ep_info_buf) > 0 and len(self.ep_info_buf[0]) > 0:
-                            logger.logkv('eval_ep_rewmean',
-                                         safe_mean([ep_info['r'] for ep_info in self.eval_ep_info_buf]))
-                            logger.logkv('eval_eplenmean',
-                                         safe_mean([ep_info['l'] for ep_info in self.eval_ep_info_buf]))
-                        logger.logkv('eval_time_elapsed', int(time.time() - start_time))
-                        logger.logkv('eval_discount_q', np.mean(eval_discount_episode_rewards))
-                        logger.logkv('eval_qs', np.mean(eval_q))
-                        logger.logkv('eval_qs_difference',
-                                     safe_mean([x - y for x, y in zip(eval_q, eval_return)]))
-                        logger.logkv('eval_abs_qs_difference',
-                                     safe_mean([abs(x - y) for x, y in zip(eval_q, eval_return)]))
-                        logger.logkv("total timesteps", self.num_timesteps)
-                        logger.dumpkvs()
-
-                episode_rewards[-1] += reward_
                 if done:
                     if self.action_noise is not None:
                         self.action_noise.reset()
                     if not isinstance(self.env, VecEnv):
                         obs = self.env.reset()
                     episode_rewards.append(0.0)
+
+                    # q4s.clear()
 
                     maybe_is_success = info.get('is_success')
                     if maybe_is_success is not None:
@@ -642,14 +591,25 @@ class TD3MemUpdateMany(OffPolicyRLModel):
                     logger.logkv("total timesteps", self.num_timesteps)
                     logger.dumpkvs()
                     # Reset infos:
-                    qs_buffer.clear()
-                    # q4s.clear()
-                    episode_returns = []
-                    discount_episodic_reward = 0.
+
                     current_steps = 0
                     infos_values = []
+                if done:
+                    qs_buffer.clear()
+                    discount_episodic_reward = 0.
+                    episode_returns = []
             callback.on_training_end()
             return self
+
+    def compute_q(self, state, action):
+        qs = self.sess.run(self.qfs_target_no_pi,
+                           feed_dict={self.observations_ph: state[None],
+                                      self.actions_ph: action})
+        q = np.min(qs)
+        return q.flatten()
+
+    def step(self, obs):
+        return self.policy_tf.step(obs)
 
     def action_probability(self, observation, state=None, mask=None, actions=None, logp=False):
         _ = np.array(observation)

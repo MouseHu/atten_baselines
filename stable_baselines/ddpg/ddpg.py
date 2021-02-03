@@ -196,10 +196,11 @@ class DDPG(OffPolicyRLModel):
     :param n_cpu_tf_sess: (int) The number of threads for TensorFlow operations
         If None, the number of cpu of the current machine will be used.
     """
+
     def __init__(self, policy, env, gamma=0.99, memory_policy=None, eval_env=None, nb_train_steps=50,
                  nb_rollout_steps=100, nb_eval_steps=100, param_noise=None, action_noise=None,
-                 normalize_observations=False, tau=0.001, batch_size=128, param_noise_adaption_interval=50,
-                 normalize_returns=False, enable_popart=False, observation_range=(-5., 5.), critic_l2_reg=0.,
+                 normalize_observations=True, tau=0.001, batch_size=128, param_noise_adaption_interval=50,
+                 normalize_returns=False, enable_popart=False, observation_range=(-5., 5.), critic_l2_reg=1e-2,
                  return_range=(-np.inf, np.inf), actor_lr=1e-4, critic_lr=1e-3, clip_norm=None, reward_scale=1.,
                  render=False, render_eval=False, memory_limit=None, buffer_size=50000, random_exploration=0.0,
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
@@ -354,9 +355,9 @@ class DDPG(OffPolicyRLModel):
                     self.action_target = self.target_policy.action_ph
 
                     normalized_obs = tf.clip_by_value(normalize(self.policy_tf.processed_obs, self.obs_rms),
-                                                       self.observation_range[0], self.observation_range[1])
+                                                      self.observation_range[0], self.observation_range[1])
                     normalized_next_obs = tf.clip_by_value(normalize(self.target_policy.processed_obs, self.obs_rms),
-                                                       self.observation_range[0], self.observation_range[1])
+                                                           self.observation_range[0], self.observation_range[1])
 
                     if self.param_noise is not None:
                         # Configure perturbed actor.
@@ -438,7 +439,7 @@ class DDPG(OffPolicyRLModel):
                     tf.summary.scalar('critic_loss', self.critic_loss)
 
                 self.params = tf_util.get_trainable_vars("model") \
-                    + tf_util.get_trainable_vars('noise/') + tf_util.get_trainable_vars('noise_adapt/')
+                              + tf_util.get_trainable_vars('noise/') + tf_util.get_trainable_vars('noise_adapt/')
 
                 self.target_params = tf_util.get_trainable_vars("target")
                 self.obs_rms_params = [var for var in tf.global_variables()
@@ -594,6 +595,17 @@ class DDPG(OffPolicyRLModel):
 
         self.stats_ops = ops
         self.stats_names = names
+
+    def compute_q(self, state, action):
+        obs = np.array(state).reshape((-1,) + self.observation_space.shape)
+        feed_dict = {self.obs_train: obs}
+        q_value = self.sess.run([self.critic_with_actor_tf], feed_dict=feed_dict)
+        return q_value
+
+    def step(self,obs):
+        obs = np.array(obs).reshape((-1,) + self.observation_space.shape)
+        action = self.sess.run(self.actor_tf,feed_dict={self.obs_train: obs})
+        return action
 
     def _policy(self, obs, apply_noise=True, compute_q=True):
         """
@@ -804,7 +816,7 @@ class DDPG(OffPolicyRLModel):
                 self.param_noise_stddev: self.param_noise.current_stddev,
             })
 
-    def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name="DDPG",
+    def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name="DDPG",eval_interval=10000,
               reset_num_timesteps=True, replay_wrapper=None):
 
         new_tb_log = self._init_num_timesteps(reset_num_timesteps)
@@ -976,28 +988,9 @@ class DDPG(OffPolicyRLModel):
                             self._update_target_net()
 
                         # Evaluate.
-                        eval_episode_rewards = []
-                        eval_qs = []
-                        if self.eval_env is not None:
-                            eval_episode_reward = 0.
-                            for _ in range(self.nb_eval_steps):
-                                if total_steps >= total_timesteps:
-                                    return self
-
-                                eval_action, eval_q = self._policy(eval_obs, apply_noise=False, compute_q=True)
-                                unscaled_action = unscale_action(self.action_space, eval_action)
-                                eval_obs, eval_r, eval_done, _ = self.eval_env.step(unscaled_action)
-                                if self.render_eval:
-                                    self.eval_env.render()
-                                eval_episode_reward += eval_r
-
-                                eval_qs.append(eval_q)
-                                if eval_done:
-                                    if not isinstance(self.env, VecEnv):
-                                        eval_obs = self.eval_env.reset()
-                                    eval_episode_rewards.append(eval_episode_reward)
-                                    eval_episode_rewards_history.append(eval_episode_reward)
-                                    eval_episode_reward = 0.
+                        if step % eval_interval == 0:
+                            # Eval
+                            self.evaluate(self.nb_eval_steps)
 
                     mpi_size = MPI.COMM_WORLD.Get_size()
 
@@ -1162,8 +1155,8 @@ class DDPG(OffPolicyRLModel):
             n_normalisation_params = len(model.obs_rms_params) + len(model.ret_rms_params)
             # Check that the issue is the one from
             # https://github.com/hill-a/stable-baselines/issues/363
-            assert len(params) == 2 * (n_params + n_target_params) + n_normalisation_params,\
-                "The number of parameter saved differs from the number of parameters"\
+            assert len(params) == 2 * (n_params + n_target_params) + n_normalisation_params, \
+                "The number of parameter saved differs from the number of parameters" \
                 " that should be loaded: {}!={}".format(len(params), len(model.get_parameter_list()))
             # Remove duplicates
             params_ = params[:n_params + n_target_params]

@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import math
 import time
 
+
 def array_min2d(x):
     x = np.array(x)
     if x.ndim >= 2:
@@ -18,8 +19,7 @@ def array_min2d(x):
 
 class EpisodicMemory(object):
     def __init__(self, buffer_size, state_dim, action_shape, obs_space, q_func, repr_func, obs_ph, action_ph, sess,
-                 gamma=0.99,
-                 alpha=0.6):
+                 gamma=0.99, alpha=0.6, max_step=1000):
         buffer_size = int(buffer_size)
         self.state_dim = state_dim
         self.capacity = buffer_size
@@ -27,6 +27,7 @@ class EpisodicMemory(object):
         self.pointer = 0
         self.obs_space = obs_space
         self.action_shape = action_shape
+        self.max_step = max_step
 
         self.query_buffer = np.zeros((buffer_size, state_dim))
         self._q_values = -np.inf * np.ones(buffer_size + 1)
@@ -138,6 +139,8 @@ class EpisodicMemory(object):
         self.returns[index] = sampled_return
         self.lru[index] = self.time
 
+        self._it_sum[index] = self._max_priority ** self._alpha
+        self._it_min[index] = self._max_priority ** self._alpha
         if next_id >= 0:
             self.next_id[index] = next_id
             if index not in self.prev_id[next_id]:
@@ -146,11 +149,14 @@ class EpisodicMemory(object):
 
         return index
 
-    def update_priority(self):
-        priorities = 1 / np.sqrt(self.contra_count[:self.curr_capacity])
-        priorities = priorities / np.max(priorities)
-        for idx, priority in enumerate(priorities):
+    def update_priority(self, idxes, priorities):
+        # priorities = 1 / np.sqrt(self.contra_count[:self.curr_capacity])
+        # priorities = priorities / np.max(priorities)
+        assert len(idxes) == len(priorities)
+        for idx, priority in zip(idxes, priorities):
             priority = max(priority, 1e-6)
+            # assert priority > 0
+            assert 0 <= idx < self.capacity
             self._it_sum[idx] = priority ** self._alpha
             self._it_min[idx] = priority ** self._alpha
 
@@ -263,8 +269,8 @@ class EpisodicMemory(object):
         # Draw such that we always have a proceeding element
         if self.curr_capacity < batch_size + len(self.end_points):
             return None
-        if priority:
-            self.update_priority()
+        # if priority:
+        #     self.update_priority()
         batch_idxs = []
         batch_idxs_next = []
         count = 0
@@ -300,6 +306,7 @@ class EpisodicMemory(object):
         reward_batch = self.reward_buffer[batch_idxs]
         terminal1_batch = self.done_buffer[batch_idxs]
         q_batch = self.q_values[batch_idxs]
+        return_batch = self.returns[batch_idxs]
 
         if mix:
             obs0_batch, obs1_batch = self.switch_first_half(obs0_batch, obs1_batch, batch_size)
@@ -321,6 +328,7 @@ class EpisodicMemory(object):
             'count': array_min2d(self.contra_count[batch_idxs] + self.contra_count[batch_idxs_next]),
             'terminals1': array_min2d(terminal1_batch),
             'return': array_min2d(q_batch),
+            'true_return': array_min2d(return_batch),
         }
         return result
 

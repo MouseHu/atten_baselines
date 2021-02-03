@@ -7,7 +7,7 @@ from stable_baselines.td3.episodic_memory_ddq import EpisodicMemoryDDQ
 from stable_baselines.td3.td3_mem_many import TD3MemUpdateMany
 
 
-class TD3MemDDQ(TD3MemUpdateMany):
+class TD3MemDDQPrioritized(TD3MemUpdateMany):
     """
     Twin Delayed DDPG (TD3)
     Addressing Function Approximation Error in Actor-Critic Methods.
@@ -59,7 +59,7 @@ class TD3MemDDQ(TD3MemUpdateMany):
                  random_exploration=0.0, verbose=0, tensorboard_log=None,
                  _init_setup_model=True, policy_kwargs=None, double_type="identical",
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
-        print("TD3 Mem DDQ Agent Here")
+        print("TD3 Mem DDQ Prioritized Agent Here")
 
         # if iterative_q:
         #     gradient_steps *= 2
@@ -74,7 +74,7 @@ class TD3MemDDQ(TD3MemUpdateMany):
         self.qfs_loss = None
         self.num_q = num_q  # or 2
         self.double_type = double_type
-        super(TD3MemDDQ, self).__init__(policy, env, eval_env, gamma, learning_rate,
+        super(TD3MemDDQPrioritized, self).__init__(policy, env, eval_env, gamma, learning_rate,
                                         buffer_size,
                                         learning_starts, train_freq, gradient_steps, batch_size,
                                         tau, policy_delay, qvalue_delay, max_step, action_noise,
@@ -187,6 +187,8 @@ class TD3MemDDQ(TD3MemUpdateMany):
                         qfs = tf.reshape(qfs, (self.batch_size, self.num_q))
 
                     diff = self.qvalues_ph - qfs + self.q_base
+                    self.diff = diff
+                    self.priority = tf.abs(tf.nn.leaky_relu(diff, alpha=0.5))
                     qfs_loss = tf.reduce_mean(
                         tf.nn.leaky_relu(sign * diff, alpha=alpha) ** 2) / alpha
                     self.qfs_loss = qfs_loss
@@ -250,7 +252,7 @@ class TD3MemDDQ(TD3MemUpdateMany):
                     self.infos_names = ['qfs_loss']
                     # All ops to call during one training step
                     self.step_ops = [qfs_loss,
-                                     qfs, train_values_op]
+                                     qfs, self.priority,train_values_op]
 
                     self.step_ops_1 = [qf1_loss, qf1, self.train_values_op_1]
                     self.step_ops_2 = [qf2_loss, qf2, self.train_values_op_2]
@@ -286,7 +288,7 @@ class TD3MemDDQ(TD3MemUpdateMany):
                                   "both": self.batch_size * self.num_q}
         num_samples = num_samples_collection[self.double_type]
         # num_samples = self.batch_size * self.num_q//2 if self.iterative_q else self.batch_size
-        batch = self.memory.sample(num_samples, mix=False)
+        batch = self.memory.sample(num_samples, mix=False,priority=True)
         if batch is None:
             return 0
         batch_obs, batch_actions, batch_rewards, batch_next_obs, batch_dones, batch_returns = batch['obs0'], batch[
@@ -323,7 +325,7 @@ class TD3MemDDQ(TD3MemUpdateMany):
             # else:
             #     step_ops = self.step_ops_1 if step % 2 == 0 else self.step_ops_2
         else:
-            step_ops = [self.qfs_loss]
+            step_ops = [self.qfs_loss,self.priority]
 
         if update_policy:
             # Update policy and target networks
@@ -341,6 +343,7 @@ class TD3MemDDQ(TD3MemUpdateMany):
             out = self.sess.run(step_ops, feed_dict)
 
         # Unpack to monitor losses
-        qfs_loss, *_values = out
+        qfs_loss, priorities, *_values = out
+        self.memory.update_priority(batch['index0'],priorities)
 
         return qfs_loss

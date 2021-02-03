@@ -6,13 +6,13 @@ import time
 class EpisodicMemoryDDQ(EpisodicMemory):
     def __init__(self, buffer_size, state_dim, action_shape, obs_space, q_func, repr_func, obs_ph, action_ph, sess,
                  gamma=0.99,
-                 alpha=0.6):
+                 alpha=0.6,max_step=1000):
         super(EpisodicMemoryDDQ, self).__init__(buffer_size, state_dim, action_shape, obs_space, q_func, repr_func,
                                                 obs_ph, action_ph, sess,
-                                                gamma, alpha)
+                                                gamma, alpha,max_step)
         del self._q_values
         self._q_values = -np.inf * np.ones((buffer_size + 1, 2))
-        self.max_step = 1
+        # self.max_step = max_step
 
     def compute_approximate_return_double(self, obses, actions=None):
         return np.array(self.sess.run(self.q_func, feed_dict={self.obs_ph: obses}))
@@ -23,16 +23,17 @@ class EpisodicMemoryDDQ(EpisodicMemory):
         for traj in trajs:
             # print(np.array(traj))
             approximate_qs = self.compute_approximate_return_double(self.replay_buffer[traj], self.action_buffer[traj])
-            if len(approximate_qs) == 4:
-                approximate_qs = approximate_qs.reshape(2, 2, -1)
+            num_q = len(approximate_qs)
+            if num_q >= 4:
+                approximate_qs = approximate_qs.reshape((2, num_q//2, -1))
                 approximate_qs = np.min(approximate_qs, axis=1)  # clip double q
 
             else:
-                assert len(approximate_qs) == 2
+                assert num_q == 2
                 approximate_qs = approximate_qs.reshape(2, -1)
             approximate_qs = np.concatenate([np.zeros((2, 1)), approximate_qs], axis=1)
-
             self.q_values[traj] = 0
+
             rtn_1 = np.zeros((len(traj), len(traj)))
             rtn_2 = np.zeros((len(traj), len(traj)))
 
@@ -43,6 +44,7 @@ class EpisodicMemoryDDQ(EpisodicMemory):
             for i, s in enumerate(traj):
                 rtn_1[i, 1:] = self.reward_buffer[s] + self.gamma * rtn_1[i - 1, :-1]
                 rtn_2[i, 1:] = self.reward_buffer[s] + self.gamma * rtn_2[i - 1, :-1]
+
             if beta > 0:
 
                 double_rtn = [
@@ -57,8 +59,15 @@ class EpisodicMemoryDDQ(EpisodicMemory):
                      rtn_1[i, np.argmax(rtn_2[i, :min(i + 1, self.max_step)])]] for i
                     in
                     range(len(traj))]
+                # double_rtn = [
+                #     [rtn_1[i, np.argmax(rtn_1[i, :min(i + 1, self.max_step)])],
+                #      rtn_2[i, np.argmax(rtn_2[i, :min(i + 1, self.max_step)])]] for i
+                #     in
+                #     range(len(traj))]
+                # double_rtn = np.min(np.array(double_rtn),axis=1,keepdims=True)
+                # double_rtn = np.repeat(double_rtn,2,axis=1)
             # self.q_values[traj] = np.maximum(np.array(double_rtn),np.minimum(rtn_1[:,0],rtn_2[:,0]))
             one_step_q = np.array([rtn_1[:, 0], rtn_2[:, 0]]).transpose()
             self.q_values[traj] = np.maximum(np.array(double_rtn),
-                                             np.min(one_step_q,axis=1,keepdims=True))
-                                             # one_step_q)
+                                             # np.min(one_step_q,axis=1,keepdims=True))
+                                             one_step_q)

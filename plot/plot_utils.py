@@ -82,18 +82,20 @@ def new_plot_full(data_full, color, name):
 
     # ax.plot(index[: len(data[0])], data_median, color=color,
     #        label=name, linewidth=config['linewidth'])
-    ax.plot(index[: len(data[0])], np.ones(len(data[0])) * np.mean(data_mean[-40:]), color=color, linestyle=':',
-            linewidth=2.0)
+    # ax.plot(index[: len(data[0])], np.ones(len(data[0])) * np.mean(data_mean[-40:]), color=color, linestyle=':',
+    #         linewidth=2.0)
     print(len(data[0]), index[-2])
 
 
 color_set = {
     'Amaranth': np.array([0.9, 0.17, 0.31]),  # main algo
     'Amber': np.array([1.0, 0.49, 0.0]),  # main baseline
+    # 'Orange': np.array([1.0,0.9375,0.0]),
     'Bleu de France': np.array([0.19, 0.55, 0.91]),
     'Electric violet': np.array([0.56, 0.0, 1.0]),
     'Dark sea green': 'forestgreen',
     'Dark electric blue': 'deeppink',
+    # 'Dark electric blue': 'deeppink',
     'Dark gray': np.array([0.66, 0.66, 0.66]),
     'Arsenic': np.array([0.23, 0.27, 0.29]),
 }
@@ -155,7 +157,7 @@ plt_config_cheetah = {
         'VDN': color_set['Dark sea green'],
         'IQL': color_set['Dark gray'],
     },
-    'smooth_range': 20,
+    'smooth_range': 1,
     'framealpha': 1,
     'get_min': 0,
     'get_max': -1
@@ -188,11 +190,11 @@ plt_config_cec = {
     'data_scale': 1,
     'legend_loc': 'best',
     'legend_ncol': 1,
-    'legend_prop_size': 8.0,
-    'xlabel': 'Million Environment Samples',
+    'legend_prop_size': 16.0,
+    'xlabel': 'Time steps(1e6)',
     'ylabel': 'Average Return',
     'xlim': (0, 1.),
-    'ylim': (-0., 600.),
+    'ylim': (-0., 6000.),
     'color': {
         'QPLEX': color_set['Amaranth'],
         'QTRAN': color_set['Amber'],
@@ -208,7 +210,7 @@ plt_config_cec = {
 }
 
 def smooth(data, smooth_range):
-    print('hhhhhhh', type(data), len(data))
+    # print('hhhhhhh', type(data), len(data))
     new_data = np.zeros_like(data)
     for i in range(0, data.shape[-1]):
         if i < smooth_range:
@@ -294,7 +296,7 @@ def plot_all(datas, legends, start=0):
 
 def legend():
     if 'figlegend' in config.keys():
-        plt.figlegend(loc='upper right', prop={'size': 26.0}, frameon=True, ncol=1)
+        plt.figlegend(loc='upper left', prop={'size': 40.0}, frameon=True, ncol=1)
         plt.tight_layout(rect=(0, 0, 6.4 / config['figlegend'], 1))
     else:
         if not (config['legend_loc'] is None):

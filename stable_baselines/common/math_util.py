@@ -149,3 +149,14 @@ def unscale_action(action_space, scaled_action):
     """
     low, high = action_space.low, action_space.high
     return low + (0.5 * (scaled_action + 1.0) * (high - low))
+
+
+def reward2return(rewards,gamma=0.99):
+    # covert reward to return
+    returns = []
+    Rtn = 0
+    for r in reversed(rewards):
+        Rtn = r + gamma * Rtn
+        returns.append(Rtn)
+    return list(reversed(returns))
+

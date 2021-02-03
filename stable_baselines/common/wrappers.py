@@ -32,16 +32,17 @@ class TimestepWrapper(Wrapper):
     def __init__(self, env, scale=0.01):
         super(TimestepWrapper, self).__init__(env)
         self.scale = scale
-        low = np.append(self.env.observation_space.low, np.array([-np.inf]))
-        high = np.append(self.env.observation_space.high, np.array([np.inf]))
-        self.observation_space = gym.spaces.Box(low, high)
+        # low = np.append(self.env.observation_space.low, np.array([-np.inf]))
+        # high = np.append(self.env.observation_space.high, np.array([np.inf]))
+        # self.observation_space = gym.spaces.Box(low, high)
         self.time_step = 0
         self.max_step = env.unwrapped.spec.max_episode_steps
+        print("max_step: ",self.max_step)
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         self.time_step += 1
-        obs = np.append(obs, np.array(self.time_step * self.scale))
+        # obs = np.append(obs, np.array(self.time_step * self.scale))
         if done and self.time_step < self.max_step:
             truly_done = True
         else:
@@ -52,7 +53,7 @@ class TimestepWrapper(Wrapper):
     def reset(self):
         self.time_step = 0
         obs = self.env.reset()
-        obs = np.append(obs, np.array(self.time_step * self.scale))
+        # obs = np.append(obs, np.array(self.time_step * self.scale))
         return obs
 
 

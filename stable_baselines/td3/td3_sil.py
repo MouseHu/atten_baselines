@@ -11,7 +11,7 @@ from stable_baselines.common.math_util import safe_mean, unscale_action, scale_a
 from stable_baselines.common.schedules import get_schedule_fn
 from stable_baselines.common.buffers import ReplayBuffer
 from stable_baselines.td3.policies import TD3Policy
-from baselines.common.self_imitation import SelfImitation
+from stable_baselines.common.self_imitation import SelfImitation
 
 
 class TD3(OffPolicyRLModel):

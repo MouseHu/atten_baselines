@@ -60,6 +60,7 @@ class SAC(OffPolicyRLModel):
 
     def __init__(self, policy, env, gamma=0.99, learning_rate=3e-4, buffer_size=50000,
                  learning_starts=100, train_freq=1, batch_size=64,
+                 nb_eval_steps=5, eval_env=None,
                  tau=0.005, ent_coef='auto', target_update_interval=1,
                  gradient_steps=1, target_entropy='auto', action_noise=None,
                  random_exploration=0.0, verbose=0, tensorboard_log=None,
@@ -76,6 +77,9 @@ class SAC(OffPolicyRLModel):
         self.train_freq = train_freq
         self.batch_size = batch_size
         self.tau = tau
+
+        self.nb_eval_steps = nb_eval_steps
+        self.eval_env = eval_env
         # In the original paper, same learning rate is used for all networks
         # self.policy_lr = learning_rate
         # self.qf_lr = learning_rate
@@ -173,7 +177,7 @@ class SAC(OffPolicyRLModel):
                     qf1_pi, qf2_pi, _ = self.policy_tf.make_critics(self.processed_obs_ph,
                                                                     policy_out, create_qf=True, create_vf=False,
                                                                     reuse=True)
-
+                    self.qf1, self.qf2 = qf1, qf2
                     # Target entropy is used when learning the entropy coefficient
                     if self.target_entropy == 'auto':
                         # automatically set target entropy if needed
@@ -252,7 +256,8 @@ class SAC(OffPolicyRLModel):
                     # Policy train op
                     # (has to be separate from value train op, because min_qf_pi appears in policy_loss)
                     policy_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph)
-                    policy_train_op = policy_optimizer.minimize(policy_loss, var_list=tf_util.get_trainable_vars('model/pi'))
+                    policy_train_op = policy_optimizer.minimize(policy_loss,
+                                                                var_list=tf_util.get_trainable_vars('model/pi'))
 
                     # Value train op
                     value_optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph)
@@ -313,6 +318,16 @@ class SAC(OffPolicyRLModel):
 
                 self.summary = tf.summary.merge_all()
 
+    def compute_q(self, state, action):
+        qf1, qf2 = self.sess.run([self.qf1, self.qf2],
+                                 feed_dict={self.observations_ph: state[None],
+                                            self.actions_ph: [action]})
+        q = np.minimum(qf1, qf2)
+        return q.flatten()
+
+    def step(self, obs):
+        return self.policy_tf.step(obs[None], deterministic=True)
+
     def _train_step(self, step, writer, learning_rate):
         # Sample a batch from the replay buffer
         batch = self.replay_buffer.sample(self.batch_size, env=self._vec_normalize_env)
@@ -351,7 +366,7 @@ class SAC(OffPolicyRLModel):
 
         return policy_loss, qf1_loss, qf2_loss, value_loss, entropy
 
-    def learn(self, total_timesteps, callback=None,
+    def learn(self, total_timesteps, callback=None,eval_interval=100000,
               log_interval=4, tb_log_name="SAC", reset_num_timesteps=True, replay_wrapper=None):
 
         new_tb_log = self._init_num_timesteps(reset_num_timesteps)
@@ -453,7 +468,7 @@ class SAC(OffPolicyRLModel):
                         # Break if the warmup phase is not over
                         # or if there are not enough samples in the replay buffer
                         if not self.replay_buffer.can_sample(self.batch_size) \
-                           or self.num_timesteps < self.learning_starts:
+                                or self.num_timesteps < self.learning_starts:
                             break
                         n_updates += 1
                         # Compute current learning_rate
@@ -472,6 +487,11 @@ class SAC(OffPolicyRLModel):
                     callback.on_rollout_start()
 
                 episode_rewards[-1] += reward_
+
+                if step % eval_interval == 0:
+                    # Eval
+                    self.evaluate(self.nb_eval_steps)
+
                 if done:
                     if self.action_noise is not None:
                         self.action_noise.reset()
@@ -489,7 +509,7 @@ class SAC(OffPolicyRLModel):
                     mean_reward = round(float(np.mean(episode_rewards[-101:-1])), 1)
 
                 # substract 1 as we appended a new term just now
-                num_episodes = len(episode_rewards) - 1 
+                num_episodes = len(episode_rewards) - 1
                 # Display training infos
                 if self.verbose >= 1 and done and log_interval is not None and num_episodes % log_interval == 0:
                     fps = int(step / (time.time() - start_time))
@@ -513,6 +533,7 @@ class SAC(OffPolicyRLModel):
                     infos_values = []
             callback.on_training_end()
             return self
+
 
     def action_probability(self, observation, state=None, mask=None, actions=None, logp=False):
         if actions is not None:

@@ -19,6 +19,7 @@ from stable_baselines.td3.td3_mem_update import TD3MemUpdate
 from stable_baselines.td3.td3_mem_many import TD3MemUpdateMany
 from stable_baselines.td3.td3_mem_residue import TD3MemResidue
 from stable_baselines.td3.td3_mem_ddq import TD3MemDDQ
+from stable_baselines.td3.td3_mem_ddq6 import TD3MemDDQ6
 from stable_baselines.ddpg.noise import AdaptiveParamNoiseSpec, OrnsteinUhlenbeckActionNoise, NormalActionNoise
 from stable_baselines.common.wrappers import TimestepWrapper, DelayedRewardWrapper, NHWCWrapper
 from stable_baselines import PPO2
@@ -115,19 +116,20 @@ def run(env_type, env_id, seed, noise_type, layer_norm, evaluation, agent, delay
     # Disable logging for rank != 0 to avoid noise.
     start_time = time.time()
 
-    if layer_norm:
-        if kwargs["encoder_type"] == 'pixel':
-            policy = 'TD3LnCnnPolicy'
-        else:
-            policy = 'TD3LnMlpPolicy'
-    else:
-        policy = 'TD3MlpPolicy'
+    # if layer_norm:
+    #     if kwargs["encoder_type"] == 'pixel':
+    #         policy = 'TD3LnCnnPolicy'
+    #     else:
+    #         policy = 'TD3LnMlpPolicy'
+    # else:
+    policy = 'TD3LnMlpPolicy'
 
     num_timesteps = kwargs['num_timesteps']
     del kwargs['num_timesteps']
 
     models = {"TD3": TD3, "TD3Mem": TD3Mem, "TD3MemResidue": TD3MemResidue, "PPO2": PPO2, "TD3MemUpdate": TD3MemUpdate,
-              "TD3MemMany": TD3MemUpdateMany, "TD3HT": TD3HT, "TD3MemRepr": TD3MemRepr, "TD3MemDDQ": TD3MemDDQ}
+              "TD3MemMany": TD3MemUpdateMany, "TD3HT": TD3HT, "TD3MemRepr": TD3MemRepr, "TD3MemDDQ": TD3MemDDQ,
+              "TD3MemDDQ6": TD3MemDDQ6}
 
     model_func = models.get(agent, TD3)
     if model_func == PPO2:
@@ -137,23 +139,26 @@ def run(env_type, env_id, seed, noise_type, layer_norm, evaluation, agent, delay
                      lam=0.95, gamma=0.99, noptepochs=10, ent_coef=.01,
                      learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=2)
     else:
-        model = model_func(policy=policy, env=env, eval_env=eval_env, gamma=gamma,
+        model = model_func(learning_starts=10000,  #### important!!!
+                           policy=policy, env=env, eval_env=eval_env, gamma=gamma,
                            alpha=kwargs['alpha'], beta=kwargs['beta'], iterative_q=kwargs['iterative_q'],
-                           num_q=kwargs['num_q'],
-                           action_noise=action_noise, buffer_size=int(1e5), verbose=2, n_cpu_tf_sess=10)
-        print("model building finished")
-        model.learn(total_timesteps=num_timesteps)
+                           num_q=kwargs['num_q'], policy_delay=kwargs['policy_delay'],
+                           gradient_steps=kwargs['gradient_steps'], max_step=kwargs['max_step'],
+                           reward_scale=kwargs['reward_scale'], nb_eval_steps=kwargs['nb_eval_steps'],
+                           action_noise=action_noise, buffer_size=kwargs['buffer_size'], verbose=2, n_cpu_tf_sess=10)
+    print("model building finished")
+    model.learn(total_timesteps=num_timesteps)
 
-        if models == TD3Mem:
-            model.memory.plot()
-            model.memory.save(os.getenv("OPENAI_LOGDIR"))
-        else:
-            model.replay_buffer.save(os.getenv("OPENAI_LOGDIR"))
-        env.close()
-        if eval_env is not None:
-            eval_env.close()
+    if models == TD3Mem:
+        model.memory.plot()
+        model.memory.save(os.getenv("OPENAI_LOGDIR"))
+    else:
+        model.replay_buffer.save(os.getenv("OPENAI_LOGDIR"))
+    env.close()
+    if eval_env is not None:
+        eval_env.close()
 
-        logger.info('total runtime: {}s'.format(time.time() - start_time))
+    logger.info('total runtime: {}s'.format(time.time() - start_time))
 
 
 def parse_args():
@@ -167,7 +172,7 @@ def parse_args():
     parser.add_argument('--env-id', type=str, default='Ant-v2')
     parser.add_argument('--agent', type=str, default='TD3')
     # boolean_flag(parser, 'render-eval', default=False)
-    boolean_flag(parser, 'layer-norm', default=True)
+    boolean_flag(parser, 'layer-norm', default=False)
     # boolean_flag(parser, 'render', default=False)
     # boolean_flag(parser, 'normalize-returns', default=False)
     # boolean_flag(parser, 'normalize-observations', default=True)
@@ -187,9 +192,11 @@ def parse_args():
     # choices are adaptive-param_xx, ou_xx, normal_xx, none
     parser.add_argument('--noise-type', type=str, default='normal_0.1')
     parser.add_argument('--num-timesteps', type=int, default=int(1e6))
+    parser.add_argument('--nb-eval-steps', type=int, default=10)
+
     parser.add_argument('--delay-step', type=int, default=0)
 
-    boolean_flag(parser, 'evaluation', default=False)
+    boolean_flag(parser, 'evaluation', default=True)
 
     # environment
     parser.add_argument('--domain_name', default='cheetah')
@@ -205,6 +212,11 @@ def parse_args():
     parser.add_argument('--alpha', default=0.5, type=float)
     parser.add_argument('--beta', default=-1, type=float)
     parser.add_argument('--num_q', default=4, type=int)
+    parser.add_argument('--policy_delay', type=int, default=2)
+    parser.add_argument('--gradient_steps', type=int, default=100)
+    parser.add_argument('--buffer_size', type=int, default=100000)
+    parser.add_argument('--max_step', type=int, default=1000)
+
     boolean_flag(parser, 'iterative_q', default=False)
     args = parser.parse_args()
     dict_args = vars(args)

@@ -218,7 +218,7 @@ class BasePolicy(ABC):
         self.generate_obs_ph()
 
     def generate_obs_ph(self):
-        with tf.variable_scope("input", reuse=False):
+        with tf.variable_scope("input", reuse=True):
                 self._pos_obs_ph, self._processed_pos_obs = observation_input(self.ob_space, self.n_batch, scale=self.scale)
                 self._neg_obs_ph, self._processed_neg_obs = observation_input(self.ob_space, self.n_batch, scale=self.scale)
                 self._tar_obs_ph, self._processed_tar_obs = observation_input(self.ob_space, self.n_batch, scale=self.scale)

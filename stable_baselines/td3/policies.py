@@ -217,7 +217,7 @@ class TD3LnMlpPolicy(TD3Policy):
 
     def __init__(self, sess, ob_space, ac_space, n_env=1, n_steps=1, n_batch=None, reuse=False, layers=None,
                  cnn_extractor=nature_cnn, feature_extraction="mlp",
-                 layer_norm=True, act_fun=tf.nn.relu, **kwargs):
+                 layer_norm=False, act_fun=tf.nn.relu, **kwargs):  ### notice!!!!
         super(TD3LnMlpPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch,
                                              reuse=reuse, scale=(feature_extraction == "cnn"))
 
@@ -229,6 +229,7 @@ class TD3LnMlpPolicy(TD3Policy):
         self.reuse = reuse
         if layers is None:
             layers = [400, 300]
+            # layers = [512,512,512]
         self.layers = layers
         self.qf1_duel = None
         self.qf2_duel = None
@@ -541,18 +542,18 @@ class CURL(object):
     def compute_key(self, z_pos):
         return tf.matmul(z_pos, tf.transpose(self.W))
 
-    def compute_loss(self, z_pos, z_anchor,weight=None):
+    def compute_loss(self, z_pos, z_anchor, weight=None):
         logits = self.compute_logits(z_anchor, z_pos)
 
         losses = tf.nn.softmax_cross_entropy_with_logits(labels=self.labels, logits=logits)
-        print("loss shape: ",losses.shape)
+        print("loss shape: ", losses.shape)
         if weight is None:
             loss = tf.reduce_mean(losses)
         else:
             print("here it is")
             print(weight.shape)
             print(losses.shape)
-            loss = tf.reduce_sum(weight*losses)
+            loss = tf.reduce_sum(weight * losses)
             print(loss.shape)
 
         return loss
