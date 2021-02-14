@@ -63,7 +63,47 @@ lr=3.5e-4
 vf_coef=0.25
 
 收敛还是比标准网络慢很多，我怀疑是extractor里面最后一层变成了16的原因，调成64试试
+收敛速度快了一点点。
+
+最后再试试标准网络，再不行就算了。发现模仿SB的标准extractor之后可以达到类似的performance（不管加不加attention结构），问题可能在初始化方式上？（甚至lr=5e-4,lr=7e-4跑出来结果都一样）
+
+经过测试，真的是因为卷积层的初始化方式，太神奇了。
+
 #### 第二阶段：加入repr
+现在开始关注generalize的performance。
+
+attn_exp
+test1：默认参数再跑一遍。
+generalize效果出人意料地不错
+
+test2:repr=1
+似乎完全放弃了对repr
+
+test3:repr=0.1
+训练慢了，generalize效果变好了，但attention似乎有时候不准
+
+目前问题：
+1.attention resize时位置不准，所以最好不要让masked_image全黑。
+只需要调整normalize的分布。
+需要一个map把[0,1]映射到[0.3,1]，y=0.2+0.8x
+
+2.同一时间的不同东西分布在不同目录，看起来很不方便。所以重新按时间排序。
+
+3.对游戏了解不够。自己要玩一下。
+发现了有的图像会有不同颜色物体的拉长，可能是因为对游戏图像预处理的结果，不深究。
+
+新的测试：在之前test3的基础上稍微调调参，重复一下.
+
+重新测了一下，发现seed的影响还挺大的，且加了attention后trainning-performance可能会变差，test-performance似乎会变好但不是很稳定。
+现在的attention仍然不是很准，范围倒还合适，所以loss系数不用调。
+
+按理来说，attention应该是寻找内部不同位置feature之间的关系，但是现在的attention生成方式只依靠于local的feature，这是不行的，所以需要改进。
+需要把attention subnetwork搞复杂一点，且多跑几个seed。
+参考：
+
+先调一下各种loss的参数，再考虑多跑seed
+
+
 
 
 

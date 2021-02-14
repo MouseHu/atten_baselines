@@ -3,7 +3,7 @@ from stable_baselines.common.policies import *
 
 class AttentionPolicy(ActorCriticPolicy):
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, layers=None, net_arch=None,
-                 act_fun=tf.tanh, cnn_extractor=attention_cnn_exposed, feature_extraction="cnn", num_actions=4,
+                 act_fun=tf.tanh, cnn_extractor=attention_cnn_exposed_v2, feature_extraction="cnn", num_actions=4,
                  add_attention=True,
                  **kwargs):
         super(AttentionPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse,
@@ -33,7 +33,7 @@ class AttentionPolicy(ActorCriticPolicy):
                 if add_attention:
                     used_feature_map = attentioned_feature_map
                 else:
-                    used_feature_map = feature_map
+                    used_feature_map = conv_to_fc(feature_map)
                 self._mem_value_fn = linear(used_feature_map, 'mem_vf', num_actions, init_scale=np.sqrt(2))
                 self.contra_repr = linear(used_feature_map, 'contra_repr', 32, init_scale=np.sqrt(2))
             # with tf.variable_scope("feature_value", reuse=False):

@@ -68,20 +68,23 @@ class A2CRepr(ActorCriticRLModel):
         If None, the number of cpu of the current machine will be used.
     """
 
-    def __init__(self, policy, env, test_env=None, gamma=0.99, n_steps=5, vf_coef=0.5, ent_coef=0.01,
+    def __init__(self, policy, env, test_env=None, gamma=0.99, n_steps=5, vf_coef=0.25, ent_coef=0.01,
                  max_grad_norm=0.5,
-                 learning_rate=2.5e-4, alpha=0.99, momentum=0.0, epsilon=1e-5, lr_schedule='constant',
-                 repr_coef=1., contra_coef=1., atten_encoder_coef= 1. / 2560, atten_decoder_coef=1.,
-                 regularize_coef=1e-4, use_attention=True,
+                 learning_rate=7e-4, alpha=0.99, momentum=0.0, epsilon=1e-5, lr_schedule='constant',
+                 repr_coef=0., contra_coef=1., atten_encoder_coef= 1./2560, atten_decoder_coef=0.1,
+                 regularize_coef=0, use_attention=True,
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None, c_loss_type="origin",
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
         print("----parameters------")
         print("learning rate \t{}".format(learning_rate))
-        print("repr_coef \t{}".format(repr_coef))
-        print("contra_coef \t{}".format(contra_coef))
-        print("atten_encoder_coef \t{}".format(atten_encoder_coef))
-        print("atten_decoder_coef \t{}".format(atten_decoder_coef))
+        print("repr_coef \t{}".format(repr_coef))#1
+        print("contra_coef \t{}".format(contra_coef))#1
+        print("atten_encoder_coef \t{}".format(atten_encoder_coef))#1./2560
+        print("atten_decoder_coef \t{}".format(atten_decoder_coef))#0.
         print("vf_coef \t{}".format(vf_coef))
+        print("regularize_coef \t{}".format(regularize_coef))#1e-4
+        print("use-attention:\t {}".format(use_attention))
+
         self.n_steps = n_steps
         self.gamma = gamma
         self.vf_coef = vf_coef
@@ -368,6 +371,7 @@ class A2CRepr(ActorCriticRLModel):
         return reconstruct_loss, repr_loss, contrastive_loss, atten_encoder_loss, atten_decoder_loss, policy_loss, value_loss, policy_entropy
 
     def restore_map(self, flatten_map, obs_shape):
+        #resize middle layers to image size
         length = int(np.sqrt(np.size(flatten_map)))
         flatten_map = flatten_map.reshape(length, length)
         flatten_map = (flatten_map - np.min(flatten_map)) / (np.max(flatten_map) - np.min(flatten_map) + 1e-12)
@@ -377,6 +381,7 @@ class A2CRepr(ActorCriticRLModel):
         return flatten_map
 
     def save_attention(self, attention, obs, recon, feature_map, subdir, step, num):
+        #save attention and middle layers
         # subdir = os.path.join(filedir, "./attention")
         # print(attention.squeeze())
 
@@ -387,7 +392,24 @@ class A2CRepr(ActorCriticRLModel):
         recon = np.array(recon)[0, ..., :3]
         # print(image.shape)
         # print(recon.shape)
-        attentioned_image = image * attention
+        # NOTE:Here rescale attention
+        attentioned_image = image * (attention*0.7+0.3)
+        #'./info_{}_{}/....'
+        stepdir=os.path.join(subdir, "./info_{}_{}/".format(step, num))
+        os.makedirs(stepdir)
+        cv2.imwrite(os.path.join(stepdir,  "masked_image.png"),
+                    attentioned_image)
+        cv2.imwrite(os.path.join(stepdir, "attention.png"),
+                    attention * 255)
+
+        cv2.imwrite(os.path.join(stepdir, "feature_map.png"),
+                    feature_map * 255)
+
+        cv2.imwrite(os.path.join(stepdir, "obs.png"),
+                    image)
+        cv2.imwrite(os.path.join(stepdir, "recon.png"),
+                    recon * 255)
+        '''
         if not os.path.isdir(subdir):
             os.makedirs(os.path.join(subdir, "./mask/"))
             os.makedirs(os.path.join(subdir, "./masked_image/"))
@@ -412,10 +434,11 @@ class A2CRepr(ActorCriticRLModel):
         cv2.imwrite(os.path.join(subdir, "./reconstruction/", "recon_{}_{}.png".format(step, num)),
                     # image * 255)
                     recon * 255)
+        '''
 
     def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name="A2C",
               reset_num_timesteps=True, begin_eval=False, print_attention_map=True, filedir=None, repr_coef=[1.]):
-        print(repr_coef)
+        
         new_tb_log = self._init_num_timesteps(reset_num_timesteps)
         callback = self._init_callback(callback)
         if begin_eval:

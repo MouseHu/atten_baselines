@@ -1,1 +1,1 @@
-CUDA_VISIBLE_DEVICES=0 OPENAI_LOGDIR=/home/lzy/atten_baselines/experiments/test nohup python run_atari_generalize.py --num-timesteps=30000000 > breakout_test.out&
+CUDA_VISIBLE_DEVICES=0 OPENAI_LOGDIR=/data1/lzy/experiments/test nohup python run_atari_generalize.py --num-timesteps=30000000 --use-attention=1 > test.out&

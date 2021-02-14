@@ -31,10 +31,15 @@ def nature_cnn(scaled_images, **kwargs):
 
 
 def attention_mask(feature_map, hard_mask=False):
-    attention_feature_map = tf.reduce_mean(feature_map, axis=-1, keepdims=True)
+    #input:N*W*H*C
+    #attention_feature_map = tf.reduce_mean(feature_map, axis=-1, keepdims=True)
+    attention_feature_map=feature_map
     with tf.variable_scope("attention"):
+        attention_feature_map= tf.nn.relu(conv(
+            attention_feature_map, 'atten_1', n_filters=16, filter_size=1, stride=1, init_scale=np.sqrt(2)))
         attention = tf.nn.sigmoid(
-        conv(attention_feature_map, 'atten', n_filters=1, filter_size=1, stride=1, init_scale=np.sqrt(2)))
+        conv(attention_feature_map, 'atten_2', n_filters=1, filter_size=1, stride=1, init_scale=np.sqrt(2)))
+        
     # attention = layers.convolution2d(attention_feature_map, num_outputs=1, kernel_size=1, stride=1,
     #                                  activation_fn=tf.nn.sigmoid,
     #                                  padding='valid', weights_initializer=tf.contrib.layers.xavier_initializer(),
@@ -57,6 +62,7 @@ def deconv_decoder(feature_map, input_size=16, img_size=128, num_kernel=16, outp
         feature_map = layers.convolution2d_transpose(padded_map, num_outputs=num_kernel, kernel_size=2, stride=2,
                                                      activation_fn=tf.nn.relu,
                                                      padding='valid')
+        
         input_size = input_size * 2 + 1
         feature_map = tf.pad(feature_map, tf.constant([[0, 0], [0, 1], [0, 1], [0, 0]]), "REFLECT")
         while input_size < img_size:
@@ -89,6 +95,17 @@ def nature_cnn_exposed(scaled_images, **kwargs):
     # layer_3 = conv_to_fc(layer_3)
     return layer_3
 
+def attention_cnn_exposed_v2(scaled_images, **kwargs):
+    activ = tf.nn.relu
+    scaled_images = tf.pad(scaled_images, tf.constant([[0, 0], [2, 2], [2, 2], [0, 0]]), "REFLECT")
+    layer_1 = activ(conv(scaled_images, 'c1', n_filters=32, filter_size=8, stride=4, init_scale=np.sqrt(2), **kwargs))
+    layer_1 = tf.pad(layer_1, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
+    layer_2 = activ(conv(layer_1, 'c2', n_filters=64, filter_size=4, stride=2, init_scale=np.sqrt(2), **kwargs))
+    layer_2 = tf.pad(layer_2, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
+    layer_3 = activ(conv(layer_2, 'c3', n_filters=64, filter_size=3, stride=1, init_scale=np.sqrt(2), **kwargs))
+    # layer_3 = conv_to_fc(layer_3)
+    # shape=(?, 10, 10, 64)
+    return layer_3
 
 def attention_cnn_exposed(scaled_images, **kwargs):
     out = scaled_images
@@ -102,16 +119,18 @@ def attention_cnn_exposed(scaled_images, **kwargs):
         #                            padding='same')
         out = tf.pad(out, tf.constant([[0, 0], [2, 2], [2, 2], [0, 0]]), "REFLECT")
         out = layers.convolution2d(out, num_outputs=32, kernel_size=8, stride=4, activation_fn=tf.nn.relu,
-                                   padding='valid', weights_initializer=tf.contrib.layers.xavier_initializer(),
-                                   biases_initializer=tf.contrib.layers.xavier_initializer())
+                                   padding='valid', weights_initializer=tf.orthogonal_initializer(),
+                                   biases_initializer=tf.constant_initializer())
         out = tf.pad(out, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
         out = layers.convolution2d(out, num_outputs=64, kernel_size=4, stride=2, activation_fn=tf.nn.relu,
-                                   padding='valid', weights_initializer=tf.contrib.layers.xavier_initializer(),
-                                   biases_initializer=tf.contrib.layers.xavier_initializer())
+                                   padding='valid', weights_initializer=tf.orthogonal_initializer(),
+                                   biases_initializer=tf.constant_initializer())
         out = tf.pad(out, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
         out = layers.convolution2d(out, num_outputs=64, kernel_size=3, stride=1, activation_fn=tf.nn.relu,
-                                   padding='valid', weights_initializer=tf.contrib.layers.xavier_initializer(),
-                                   biases_initializer=tf.contrib.layers.xavier_initializer())
+                                   padding='valid', weights_initializer=tf.orthogonal_initializer(),
+                                   biases_initializer=tf.constant_initializer())
+    #tf.contrib.layers.xavier_initializer()
+    #tf.contrib.layers.xavier_initializer()
 
     return out
 

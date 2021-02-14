@@ -88,9 +88,9 @@ def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, 
         model.learn(total_timesteps=save_interval, reset_num_timesteps=epoch == 0, print_attention_map=True,
                     repr_coef=[repr_coef] if epoch > epochs * begin_repr else [0.])
         print(model.num_timesteps)
-
-        #model.eval(int(save_interval/10), print_attention_map=True, filedir=None)
-        model.save(os.path.join(save_path, "model_{}.pkl".format((epoch + 1) * save_interval)))
+        model.eval(int(save_interval/10), print_attention_map=True, filedir=None)
+        if epoch%50==2:
+            model.save(os.path.join(save_path, "model_{}.pkl".format((epoch + 1) * save_interval)))
     # model.learn(total_timesteps=int(num_timesteps * 1.1))
     train_env.close()
     test_env.close()
@@ -123,7 +123,8 @@ def train_a2c(env_id, num_timesteps, seed, policy, num_env, variation,
     for epoch in range(epochs):
         model.learn(total_timesteps=save_interval, reset_num_timesteps=epoch == 0)
         print(model.num_timesteps)
-        model.save(os.path.join(save_path, "model_{}.pkl".format((epoch + 1) * save_interval)))
+        if epoch%50==2:
+            model.save(os.path.join(save_path, "model_{}.pkl".format((epoch + 1) * save_interval)))
     # model.learn(total_timesteps=int(num_timesteps * 1.1))
     train_env.close()
 
@@ -139,15 +140,15 @@ def main():
                         default='constant-rectangle', help='Env variation')
     parser.add_argument('--repr_coef', help='reprenstation loss coefficient', type=float, default=0.)
     parser.add_argument('--begin_repr', help='reprenstation loss coefficient', type=float, default=0.)
-    parser.add_argument('--use-attention', help='if or not to use attention', type=bool, default=True)
+    parser.add_argument('--use-attention',help='if or not to use attention', type=int, default=1)
 
     parser.add_argument('--lr_schedule', choices=['constant', 'linear'], default='constant',
                         help='Learning rate schedule')
-    parser.add_argument('--vf_coef', default=0.5,type=float,
+    parser.add_argument('--vf_coef', default=0.25,type=float,
                         help='value loss coef')
-    parser.add_argument('--lr', default=2.5e-4,type=float,
+    parser.add_argument('--lr', default=7e-4,type=float,
                         help='Learning rate')
-    parser.add_argument('--encoder_coef', default=1./ 2560,type=float,
+    parser.add_argument('--encoder_coef', default= 1./2560,type=float,
                         help='encoder_coef')
     parser.add_argument('--load-path', type=str, default=None,
                         help='Path to load model')
@@ -157,7 +158,7 @@ def main():
     #     num_env=16, variation=args.variation)
     train(args.env, num_timesteps=args.num_timesteps, seed=args.seed, policy=args.policy, lr_schedule=args.lr_schedule,
           num_env=16, variation=args.variation, repr_coef=args.repr_coef,learning_rate=args.lr,load_path=args.load_path,
-          use_attention=args.use_attention,begin_repr=args.repr_coef,vf_coef=args.vf_coef,encoder_coef=args.encoder_coef)
+          use_attention=(args.use_attention!=0),begin_repr=args.repr_coef,vf_coef=args.vf_coef,encoder_coef=args.encoder_coef)
 
 
 if __name__ == '__main__':
