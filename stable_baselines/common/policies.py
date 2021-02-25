@@ -29,6 +29,33 @@ def nature_cnn(scaled_images, **kwargs):
     layer_3 = conv_to_fc(layer_3)
     return activ(linear(layer_3, 'fc1', n_hidden=512, init_scale=np.sqrt(2)))
 
+def attention_mask_v2(feature_map):
+    #input:N*W*H*C
+    #attention_feature_map = tf.reduce_mean(feature_map, axis=-1, keepdims=True)
+    #REF:https://blog.csdn.net/qq_39478403/article/details/105455877
+    #CODE:https://github.com/taki0112/Self-Attention-GAN-Tensorflow
+    def hw_flatten(x) :
+        
+        return tf.reshape(x, shape=[-1,100,x.shape[-1]])
+    attention_feature_map=feature_map
+    with tf.variable_scope("attention"):
+        f= tf.nn.relu(conv(
+            attention_feature_map, 'atten_f', n_filters=8, filter_size=1, stride=1, init_scale=np.sqrt(2)))
+        g= tf.nn.relu(conv(
+            attention_feature_map, 'atten_g', n_filters=8, filter_size=1, stride=1, init_scale=np.sqrt(2)))
+        h=tf.nn.relu(conv(attention_feature_map, 'atten_h',
+         n_filters=64, filter_size=1, stride=1, init_scale=np.sqrt(2)))
+        h_linear=hw_flatten(h)
+        f=hw_flatten(f)
+        g=hw_flatten(g)
+        attention = tf.nn.softmax(tf.linalg.matmul(f, g, transpose_b=True),axis=-1)#B * N * N
+        attention_reduced=tf.reduce_mean(attention,axis=2,keep_dims=False)
+        attention_raw=tf.reshape(attention_reduced,[-1,10,10,1])
+        feature_map_out = tf.reshape(tf.matmul(attention,h_linear),shape=[-1,100,64])#B*N*C
+        attentioned_feature_map_raw=tf.reshape(feature_map_out, shape=[-1, 10,10,64])
+
+    #attention_raw,attentioned_feature_map_raw,attention, attentioned_feature_map
+    return attention_raw, attentioned_feature_map_raw,attention_reduced,tf.reshape(feature_map_out,shape=[-1,6400])
 
 def attention_mask(feature_map, hard_mask=False):
     #input:N*W*H*C
@@ -37,8 +64,10 @@ def attention_mask(feature_map, hard_mask=False):
     with tf.variable_scope("attention"):
         attention_feature_map= tf.nn.relu(conv(
             attention_feature_map, 'atten_1', n_filters=16, filter_size=1, stride=1, init_scale=np.sqrt(2)))
+        attention_feature_map= tf.nn.relu(conv(
+            attention_feature_map, 'atten_2', n_filters=16, filter_size=1, stride=1, init_scale=np.sqrt(2)))
         attention = tf.nn.sigmoid(
-        conv(attention_feature_map, 'atten_2', n_filters=1, filter_size=1, stride=1, init_scale=np.sqrt(2)))
+        conv(attention_feature_map, 'atten_3', n_filters=1, filter_size=1, stride=1, init_scale=np.sqrt(2)))
         
     # attention = layers.convolution2d(attention_feature_map, num_outputs=1, kernel_size=1, stride=1,
     #                                  activation_fn=tf.nn.sigmoid,

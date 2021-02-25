@@ -27,6 +27,9 @@ class AttentionPolicy(ActorCriticPolicy):
             assert feature_extraction == "cnn", "Attention policy only support cnn extrator now"
             with tf.variable_scope("feature", reuse=False):
                 feature_map = cnn_extractor(self.processed_obs, **kwargs)
+                #(?, 10, 10, 64)
+                #attention_raw
+                #attention_raw,attentioned_feature_map_raw,attention, attentioned_feature_map = attention_mask_v2(feature_map)
                 attention_raw, attentioned_feature_map_raw = attention_mask(feature_map)
                 attention, attentioned_feature_map = conv_to_fc(attention_raw), conv_to_fc(attentioned_feature_map_raw)
                 reduced_feature_map = conv_to_fc(tf.reduce_mean(feature_map, axis=-1, keepdims=False))

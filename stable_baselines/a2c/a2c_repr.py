@@ -71,7 +71,7 @@ class A2CRepr(ActorCriticRLModel):
     def __init__(self, policy, env, test_env=None, gamma=0.99, n_steps=5, vf_coef=0.25, ent_coef=0.01,
                  max_grad_norm=0.5,
                  learning_rate=7e-4, alpha=0.99, momentum=0.0, epsilon=1e-5, lr_schedule='constant',
-                 repr_coef=0., contra_coef=1., atten_encoder_coef= 1./2560, atten_decoder_coef=0.1,
+                 repr_coef=0., contra_coef=0.01, atten_encoder_coef= 0.0, atten_decoder_coef=0.0,
                  regularize_coef=0, use_attention=True,
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None, c_loss_type="origin",
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
@@ -80,7 +80,7 @@ class A2CRepr(ActorCriticRLModel):
         print("repr_coef \t{}".format(repr_coef))#1
         print("contra_coef \t{}".format(contra_coef))#1
         print("atten_encoder_coef \t{}".format(atten_encoder_coef))#1./2560
-        print("atten_decoder_coef \t{}".format(atten_decoder_coef))#0.
+        print("atten_decoder_coef \t{}".format(atten_decoder_coef))#0.1
         print("vf_coef \t{}".format(vf_coef))
         print("regularize_coef \t{}".format(regularize_coef))#1e-4
         print("use-attention:\t {}".format(use_attention))

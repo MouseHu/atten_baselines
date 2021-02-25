@@ -20,7 +20,7 @@ from attn_toy.env.wrappers import ImageInputWarpper
 
 
 def train(train_env, test_env, finetune_num_timesteps, num_timesteps, policy, nminibatches=4, n_steps=128, repr_coef=0.,
-          use_attention=True,
+          use_attention=True,atten_decoder_coef=0.1
           test_interval=2048, replay_buffer=None):
     """
     Train PPO2 model for atari environment, for testing purposes
@@ -47,7 +47,7 @@ def train(train_env, test_env, finetune_num_timesteps, num_timesteps, policy, nm
     model = PPO2Repr(policy=policy, env=train_env, test_env=test_env, n_steps=n_steps, nminibatches=nminibatches,
                      lam=0.95, gamma=0.99, noptepochs=10, ent_coef=.01,
                      learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1, repr_coef=repr_coef,
-                     use_attention=use_attention,
+                     use_attention=use_attention,atten_decoder_coef=0.1,
                      replay_buffer=replay_buffer)
     atten_map_interval=50
     repr_schedule = PiecewiseSchedule([(0, 100), (0.05, 200), (0.1, 300), (0.5, 400), (1, 500)],
@@ -102,7 +102,8 @@ def main():
                         default='attention')
     parser.add_argument('--n_env', help='Policy architecture', type=int, default=8)
     parser.add_argument('--id', help='experiment id', type=str, default='coin3')
-    parser.add_argument('--repr_coef', help='reprenstation loss coefficient', type=float, default=1.)
+    parser.add_argument('--repr_coef', help='reprenstation loss coefficient', type=float, default=0.1)
+    parser.add_argument('--atten_decoder_coef', help='atten_decoder_coef', type=float, default=0.1)
     parser.add_argument('--use-attention', help='whether or not add attention architecture in network', type=bool,
                         default=True)
     parser.add_argument('--finetune_num_timesteps', help='Policy architecture', type=int, default=131072)
@@ -122,7 +123,8 @@ def main():
     with open(seed_file, "w") as f:
         f.write(str(args.seed))
     train(env, test_env, finetune_num_timesteps=args.finetune_num_timesteps, num_timesteps=args.num_timesteps,
-          policy=args.policy, replay_buffer=None, repr_coef=args.repr_coef, use_attention=args.use_attention)
+          policy=args.policy, replay_buffer=None, atten_decoder_coef=args.atten_decoder_coef,
+          repr_coef=args.repr_coef, use_attention=args.use_attention)
 
 
 if __name__ == '__main__':

@@ -53,7 +53,7 @@ def make_atari_env(env_id, num_env, seed, wrapper_kwargs=None,
                          start_method=start_method)
 
 
-def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, load_path, encoder_coef,repr_coef=1.,
+def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, load_path, encoder_coef,decoder_coef=0.1,repr_coef=1.,
           use_attention=True, save_interval=100000,learning_rate=2.5e-4,vf_coef=0.5,begin_repr=1.):
     """
     Train A2C model for atari environment, for testing purposes
@@ -74,7 +74,7 @@ def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, 
 
     if load_path is None:
         model = A2CRepr(policy_fn, train_env, test_env,learning_rate=learning_rate,vf_coef=vf_coef,lr_schedule=lr_schedule, 
-        seed=seed, repr_coef=repr_coef,atten_encoder_coef=encoder_coef,
+        seed=seed, repr_coef=repr_coef,atten_encoder_coef=encoder_coef,atten_decoder_coef=decoder_coef,
                         verbose=1, use_attention=use_attention)
     else:
         model = A2CRepr.load(load_path=load_path)
@@ -89,7 +89,7 @@ def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, 
                     repr_coef=[repr_coef] if epoch > epochs * begin_repr else [0.])
         print(model.num_timesteps)
         model.eval(int(save_interval/10), print_attention_map=True, filedir=None)
-        if epoch%50==2:
+        if epoch%200==2:
             model.save(os.path.join(save_path, "model_{}.pkl".format((epoch + 1) * save_interval)))
     # model.learn(total_timesteps=int(num_timesteps * 1.1))
     train_env.close()
@@ -137,7 +137,7 @@ def main():
                         default='attention')
     parser.add_argument('--variation',
                         choices=['standard', 'moving-square', 'constant-rectangle', 'green-lines', 'diagonals'],
-                        default='constant-rectangle', help='Env variation')
+                        default='green-lines', help='Env variation')
     parser.add_argument('--repr_coef', help='reprenstation loss coefficient', type=float, default=0.)
     parser.add_argument('--begin_repr', help='reprenstation loss coefficient', type=float, default=0.)
     parser.add_argument('--use-attention',help='if or not to use attention', type=int, default=1)
@@ -148,8 +148,10 @@ def main():
                         help='value loss coef')
     parser.add_argument('--lr', default=7e-4,type=float,
                         help='Learning rate')
-    parser.add_argument('--encoder_coef', default= 1./2560,type=float,
-                        help='encoder_coef')
+    parser.add_argument('--encoder_coef', default= 0.0,type=float,
+                        help='encoder_coef')#1./2560
+    parser.add_argument('--decoder_coef', default= 0.1,type=float,
+                        help='decoder_coef')#1./2560
     parser.add_argument('--load-path', type=str, default=None,
                         help='Path to load model')
     args = parser.parse_args()
@@ -158,7 +160,8 @@ def main():
     #     num_env=16, variation=args.variation)
     train(args.env, num_timesteps=args.num_timesteps, seed=args.seed, policy=args.policy, lr_schedule=args.lr_schedule,
           num_env=16, variation=args.variation, repr_coef=args.repr_coef,learning_rate=args.lr,load_path=args.load_path,
-          use_attention=(args.use_attention!=0),begin_repr=args.repr_coef,vf_coef=args.vf_coef,encoder_coef=args.encoder_coef)
+          use_attention=(args.use_attention!=0),begin_repr=args.repr_coef,vf_coef=args.vf_coef,encoder_coef=args.encoder_coef
+          ,decoder_coef=args.decoder_coef)
 
 
 if __name__ == '__main__':
