@@ -1,1 +1,5 @@
-CUDA_VISIBLE_DEVICES=0 OPENAI_LOGDIR=/home/lzy/atten_baselines/experiments/test nohup python run_atari_generalize.py --num-timesteps=30000000 --use-attention=1 > test.out&
+CUDA_VISIBLE_DEVICES=0 OPENAI_LOGDIR=/home/lzy/atten_baselines/experiments/test 
+nohup python run_atari_generalize.py --num-timesteps=30000000 --use-attention=1 > test.out&
+
+CUDA_VISIBLE_DEVICES=0 OPENAI_LOGDIR=/home/lzy/atten_baselines/experiments/test  nohup python run_atari_generalize.py --num-timesteps=40000000 \
+ --repr_coef=0.05 --decoder_coef=0.1 --encoder_coef=0.001 --regularize_coef=0  >test.out&

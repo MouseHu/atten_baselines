@@ -38,7 +38,7 @@ def make_atari_env(env_id, num_env, seed, wrapper_kwargs=None,
             env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)),
                           allow_early_resets=allow_early_resets)
             # env = AtariNoisyBackground(env)
-            env = AtariRescale42x42(env, variation)
+            env = AtariRescale42x42(env, variation,"pong")
             return wrap_deepmind(env, **wrapper_kwargs)
 
         return _thunk
@@ -54,7 +54,8 @@ def make_atari_env(env_id, num_env, seed, wrapper_kwargs=None,
 
 
 def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, load_path, encoder_coef,decoder_coef=0.1,repr_coef=1.,
-          use_attention=True, save_interval=100000,learning_rate=2.5e-4,vf_coef=0.5,begin_repr=1.):
+          use_attention=True, save_interval=100000,learning_rate=2.5e-4,vf_coef=0.5,begin_repr=1.,
+          regularize_coef=1e-4):
     """
     Train A2C model for atari environment, for testing purposes
 
@@ -75,7 +76,7 @@ def train(env_id, num_timesteps, seed, policy, lr_schedule, num_env, variation, 
     if load_path is None:
         model = A2CRepr(policy_fn, train_env, test_env,learning_rate=learning_rate,vf_coef=vf_coef,lr_schedule=lr_schedule, 
         seed=seed, repr_coef=repr_coef,atten_encoder_coef=encoder_coef,atten_decoder_coef=decoder_coef,
-                        verbose=1, use_attention=use_attention)
+                        verbose=1, use_attention=use_attention,regularize_coef=regularize_coef)
     else:
         model = A2CRepr.load(load_path=load_path)
         model.set_env(test_env)
@@ -152,16 +153,19 @@ def main():
                         help='encoder_coef')#1./2560
     parser.add_argument('--decoder_coef', default= 0.1,type=float,
                         help='decoder_coef')#1./2560
+    parser.add_argument('--regularize_coef', default= 0.0001,type=float,
+                        help='regularize_coef')#1./2560
+
     parser.add_argument('--load-path', type=str, default=None,
                         help='Path to load model')
     args = parser.parse_args()
     logger.configure()
     # train_a2c(args.env, num_timesteps=args.num_timesteps, seed=args.seed, policy='cnn', \
     #     num_env=16, variation=args.variation)
-    train(args.env, num_timesteps=args.num_timesteps, seed=args.seed, policy=args.policy, lr_schedule=args.lr_schedule,
+    train("PongNoFrameskip-v4", num_timesteps=args.num_timesteps, seed=args.seed, policy=args.policy, lr_schedule=args.lr_schedule,
           num_env=16, variation=args.variation, repr_coef=args.repr_coef,learning_rate=args.lr,load_path=args.load_path,
           use_attention=(args.use_attention!=0),begin_repr=args.repr_coef,vf_coef=args.vf_coef,encoder_coef=args.encoder_coef
-          ,decoder_coef=args.decoder_coef)
+          ,decoder_coef=args.decoder_coef,regularize_coef=args.regularize_coef)
 
 
 if __name__ == '__main__':

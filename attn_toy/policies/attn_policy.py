@@ -3,7 +3,7 @@ from stable_baselines.common.policies import *
 
 class AttentionPolicy(ActorCriticPolicy):
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, layers=None, net_arch=None,
-                 act_fun=tf.tanh, cnn_extractor=attention_cnn_exposed_v2, feature_extraction="cnn", num_actions=4,
+                 act_fun=tf.tanh, cnn_extractor=attention_cnn_exposed_v2, feature_extraction="cnn", num_actions=6,
                  add_attention=True,
                  **kwargs):
         super(AttentionPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse,
@@ -25,18 +25,55 @@ class AttentionPolicy(ActorCriticPolicy):
 
         with tf.variable_scope("model", reuse=reuse):
             assert feature_extraction == "cnn", "Attention policy only support cnn extrator now"
-            with tf.variable_scope("feature", reuse=False):
-                feature_map = cnn_extractor(self.processed_obs, **kwargs)
+            with tf.variable_scope("feature", reuse=tf.AUTO_REUSE) as scope:
+                #print(self.processed_obs)#(?,84,84,4)
+                feature_map=cnn_extractor(self.processed_obs, **kwargs)
+                attention_raw, attentioned_feature_map_raw=attention_mask(feature_map)
+                attention=conv_to_fc(attention_raw)
+                attentioned_feature_map = conv_to_fc(attentioned_feature_map_raw)
+                
+                # feature_map_array=[None]*4
+                # attention_array=[None]*4
+                # #attentioned_feature_map_array=[None]*4
+                # attention_raw_array=[None]*4
+                # attentioned_feature_map_raw_array =[None]*4
+
+
+                # for i in range(4):
+                #     feature_map_array[i] = cnn_extractor(tf.expand_dims(self.processed_obs[:,:,:,i], dim=-1), **kwargs)
+                #     attention_raw_array[i], attentioned_feature_map_raw_array[i] = attention_mask(feature_map_array[i])
+                #     attention_array[i]=tf.expand_dims(conv_to_fc(attention_raw_array[i]),dim=-1)
+                #     scope.reuse_variables()
+                
                 #(?, 10, 10, 64)
                 #attention_raw
                 #attention_raw,attentioned_feature_map_raw,attention, attentioned_feature_map = attention_mask_v2(feature_map)
-                attention_raw, attentioned_feature_map_raw = attention_mask(feature_map)
-                attention, attentioned_feature_map = conv_to_fc(attention_raw), conv_to_fc(attentioned_feature_map_raw)
-                reduced_feature_map = conv_to_fc(tf.reduce_mean(feature_map, axis=-1, keepdims=False))
+                #attentioned_feature_map_raw=tf.concat(attentioned_feature_map_raw_array,axis=-1)
+
+                # with tf.variable_scope("reduce", reuse=tf.AUTO_REUSE) as scope2:
+                #     attentioned_feature_map = tf.pad(attentioned_feature_map_raw, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
+                #     attentioned_feature_map=conv(attentioned_feature_map,scope=scope2,n_filters=64,
+                #     filter_size=3, stride=1, init_scale=np.sqrt(2))
+                # attentioned_feature_map = conv_to_fc(attentioned_feature_map)
+                # print(attentioned_feature_map)
+                # feature_map=tf.concat(feature_map_array,axis=-1)
+
+                # attention_raw=tf.reduce_max(tf.concat(attention_raw_array,axis=-1),axis=-1,keepdims=True)
+                #print(attention_raw)(?,10,10,1)
+                
+
+                #attention=tf.reduce_max(tf.concat(attention_array,axis=-1),axis=-1,keepdims=True)
+                #print(attention)(?,100,1)
+                #concat attention
+                reduced_feature_map = conv_to_fc(tf.reduce_mean(feature_map, axis=-1, keep_dims=True))
+                
                 if add_attention:
                     used_feature_map = attentioned_feature_map
                 else:
                     used_feature_map = conv_to_fc(feature_map)
+                #print(used_feature_map)#(?,6400)
+
+            with tf.variable_scope("representation", reuse=False):
                 self._mem_value_fn = linear(used_feature_map, 'mem_vf', num_actions, init_scale=np.sqrt(2))
                 self.contra_repr = linear(used_feature_map, 'contra_repr', 32, init_scale=np.sqrt(2))
             # with tf.variable_scope("feature_value", reuse=False):

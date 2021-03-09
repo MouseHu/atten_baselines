@@ -75,6 +75,9 @@ class A2CRepr(ActorCriticRLModel):
                  regularize_coef=0, use_attention=True,
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None, c_loss_type="origin",
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
+        print(env)
+        print(test_env)
+        print(env.action_space)
         print("----parameters------")
         print("learning rate \t{}".format(learning_rate))
         print("repr_coef \t{}".format(repr_coef))#1
@@ -239,8 +242,11 @@ class A2CRepr(ActorCriticRLModel):
                     self.encoder_loss = self.atten_encoder_coef * tf.reduce_mean(
                         tf.norm(attention_model.hard_attention, ord=1, axis=1))
                     # self.weight_loss = tf.norm(self.train_model.weighted_w,ord=1)
+                    print(attention_model.mem_value_fn)
+                    print(self.mem_return_ph)
                     self.decoder_loss = self.atten_decoder_coef * tf.reduce_mean(
                         tf.square(attention_model.mem_value_fn - self.mem_return_ph))
+                    
 
 
                     # print(target_model.feature_map_raw.shape)
@@ -265,6 +271,7 @@ class A2CRepr(ActorCriticRLModel):
 
                     self.params = tf_util.get_trainable_vars("model")
                     self.repr_params = tf_util.get_trainable_vars("model/feature")
+                    
                     print(self.params)
                     grads = tf.gradients(a2c_loss, self.params)
                     if self.max_grad_norm is not None:
@@ -384,11 +391,14 @@ class A2CRepr(ActorCriticRLModel):
         #save attention and middle layers
         # subdir = os.path.join(filedir, "./attention")
         # print(attention.squeeze())
+        #print('attention_min:{}'.format(np.min(attention)))
+        #print('attention_max:{}'.format(np.max(attention)))
 
         attention = self.restore_map(attention, obs.shape)
+        
         feature_map = self.restore_map(feature_map, obs.shape)
-        image = np.array(obs)[..., :3]
-
+        image = np.array(obs)[..., :3]#last dim is dropped
+        grey_image=np.expand_dims(np.array(obs)[..., 0],-1)
         recon = np.array(recon)[0, ..., :3]
         # print(image.shape)
         # print(recon.shape)
@@ -397,6 +407,8 @@ class A2CRepr(ActorCriticRLModel):
         #'./info_{}_{}/....'
         stepdir=os.path.join(subdir, "./info_{}_{}/".format(step, num))
         os.makedirs(stepdir)
+        cv2.imwrite(os.path.join(stepdir,  "grey_image.png"),
+                    grey_image)
         cv2.imwrite(os.path.join(stepdir,  "masked_image.png"),
                     attentioned_image)
         cv2.imwrite(os.path.join(stepdir, "attention.png"),
@@ -591,6 +603,7 @@ class A2CRepr(ActorCriticRLModel):
                         filedir = os.getenv('OPENAI_LOGDIR')
                         filedir = os.path.join(filedir, "attention_eval")
                     rnd_indices = np.random.choice(len(obs), min(5, len(obs)), replace=False)
+                    print('length of obs is {}'.format(len(obs)))
                     for i in range(len(rnd_indices)):
                         ind = rnd_indices[i]
                         recon = self.sess.run(self.decoded_image_target,

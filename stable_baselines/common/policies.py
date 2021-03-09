@@ -125,15 +125,16 @@ def nature_cnn_exposed(scaled_images, **kwargs):
     return layer_3
 
 def attention_cnn_exposed_v2(scaled_images, **kwargs):
-    activ = tf.nn.relu
-    scaled_images = tf.pad(scaled_images, tf.constant([[0, 0], [2, 2], [2, 2], [0, 0]]), "REFLECT")
-    layer_1 = activ(conv(scaled_images, 'c1', n_filters=32, filter_size=8, stride=4, init_scale=np.sqrt(2), **kwargs))
-    layer_1 = tf.pad(layer_1, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
-    layer_2 = activ(conv(layer_1, 'c2', n_filters=64, filter_size=4, stride=2, init_scale=np.sqrt(2), **kwargs))
-    layer_2 = tf.pad(layer_2, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
-    layer_3 = activ(conv(layer_2, 'c3', n_filters=64, filter_size=3, stride=1, init_scale=np.sqrt(2), **kwargs))
-    # layer_3 = conv_to_fc(layer_3)
-    # shape=(?, 10, 10, 64)
+    with tf.variable_scope("convnet"):
+        activ = tf.nn.relu
+        scaled_images = tf.pad(scaled_images, tf.constant([[0, 0], [2, 2], [2, 2], [0, 0]]), "REFLECT")
+        layer_1 = activ(conv(scaled_images, 'c1', n_filters=32, filter_size=8, stride=4, init_scale=np.sqrt(2), **kwargs))
+        layer_1 = tf.pad(layer_1, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
+        layer_2 = activ(conv(layer_1, 'c2', n_filters=64, filter_size=4, stride=2, init_scale=np.sqrt(2), **kwargs))
+        layer_2 = tf.pad(layer_2, tf.constant([[0, 0], [1, 1], [1, 1], [0, 0]]), "REFLECT")
+        layer_3 = activ(conv(layer_2, 'c3', n_filters=64, filter_size=3, stride=1, init_scale=np.sqrt(2), **kwargs))
+        # layer_3 = conv_to_fc(layer_3)
+        # shape=(?, 10, 10, 64)
     return layer_3
 
 def attention_cnn_exposed(scaled_images, **kwargs):

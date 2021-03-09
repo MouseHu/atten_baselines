@@ -163,7 +163,8 @@ gl也许刚好，但只用contrasive loss很难学出来.
 有几个只用contrasive loss还不错。
 根据已有结果
 repr_coef定为0.05。
-contra_coef定为0.01。
+contra_coef定为0.01.
+decoder_coef暂定为0.1
 
 2.25
 进展：
@@ -195,6 +196,81 @@ TD可能会带来训练不稳定。
 2.多交流
 3.养成文献管理的习惯
 4.实验还好，最重要的是有条理，控制好变量。
+
+2021.3.2
+换了新的网络结构，加了正则化。跑了16个seed，主要是测试regularzation和encoder_loss。
+repr_coef定为0.05。
+contra_coef定为0.01.
+decoder_coef暂定为0.1
+结果如下：
+注：无效的attention常常会attend到一个固定位置
+
+|seed编号|encoder_coef|regular_coef|训练速度|泛化能力|attention状况|
+|-|-|-|-|-|-|
+|11|0.0003|3e-6|快|中等|无效|
+|12|0.0001|3e-6|快|中等|有时候attend到paddle上|
+|13|0.00005|3e-6|快|好|基本无效，偶尔attend到板子上|
+|14|0.00001|3e-6|快|差|无效|
+|21|0.0003|1e-5|中等|差|偶尔attend到paddle上|
+|22|0.0001|1e-5|中等|差|无效|
+|23|0.00005|1e-5|中等|中等|基本无效|
+|24|0.00001|1e-5|中等|好|无效|
+|31|0.0003|3e-5|中下|差|不关心|
+|32|0.0001|3e-5|中下|中等|不关心|
+|33|0.00005|3e-5|中下|好|纯黑|
+|34|0.00001|3e-5|中下|差|不关心|
+|41|0.0003|0.0001|慢|差|不关心|
+|42|0.0001|0.0001|慢|不错，但波动大|比较好地attend到paddle上|
+|43|0.00005|0.0001|慢|差|不关心|
+|44|0.00001|0.0001|慢|差|不关心|
+
+结论：
+- 训练太慢了，应该跟regularzation和新的structure都有关系。
+- 现在的泛化能力很可能是contrasive-loss带来的，attention看起来还没训好
+- 由于还没训好，所以无从评判
+下一步：
+- 先去掉regularzation，在新的structure上吧training performance调好点
+- 具体来说，打算给output后加个1X1卷积，降维
+
+但，其实，这样效率有点太低了，所以还是顺便调一下attention_loss
+attention的结构是另一个疑问，鉴于之前发现能学到东西，就先不变吧。
+
+3.3
+训练中，训练速度和原来的类似，原来训练慢可能是因为regularzation或者过多的channels.
+问题：
+1.是不是需要attend到所有未被打中的方块上,如果是，attention_loss的coef应该非常小才对。
+通过视野去分辨未被打中的block和noise，通过亮度区分paddle和noise(noise指green-line)
+
+2.能不能让attention的选择变成分类问题。（怎么求导？）
+先不考虑这个。
+
+最好能不加reg,最好是通过网络结构本身学到。
+
+try atari-pong (simpler)
+
+3.5
+去掉了reg以后泛化能力很差，似乎是因为我做了1X1卷积降维。甚至连contrasive_loss也不太work了。
+所以还是先不做3X3卷积吧。
+
+新跑了两个实验，一个是64通道的3X3卷积，一个是无reduce的，看看效果。
+
+3.8
+64通道的3X3卷积迁移能力还是不行；无reduce学的基本也不太好。
+
+### atari-breakout环境结论：
+
+1. 环境难度：
+diagnol过难，rec过于简单，gl刚刚好。
+训练要一天半左右才到头，时间过长。
+而且，为了predict value，需要attend到所有没有被打到的砖块上，训练难度过大。
+
+2. 网络结构
+在default的网络结构下，contrasive loss可以有不错的泛化效果，但是attention_mask不太work。
+
+使用了新的对不同frame分别做attention的网络结构后，trainning performance变化不大，但generalization的performance下降了（即使同样使用contrasive loss）；attention_mask在加regularzation的情况下偶尔work，但是最多也只能attend到板子上，而且regularzation会使训练速度大幅度下降。
+
+
+
 
 
 
