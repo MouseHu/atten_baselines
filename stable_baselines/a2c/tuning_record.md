@@ -269,6 +269,13 @@ diagnol过难，rec过于简单，gl刚刚好。
 
 使用了新的对不同frame分别做attention的网络结构后，trainning performance变化不大，但generalization的performance下降了（即使同样使用contrasive loss）；attention_mask在加regularzation的情况下偶尔work，但是最多也只能attend到板子上，而且regularzation会使训练速度大幅度下降。
 
+3. 最优超参数：
+lr：默认即可
+repr_coef:0.05。
+contra_coef:0.01.
+decoder_coef:0.1
+regularze_coef:1e-5以下
+
 
 
 

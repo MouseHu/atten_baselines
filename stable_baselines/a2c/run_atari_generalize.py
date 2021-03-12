@@ -38,7 +38,7 @@ def make_atari_env(env_id, num_env, seed, wrapper_kwargs=None,
             env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(rank)),
                           allow_early_resets=allow_early_resets)
             # env = AtariNoisyBackground(env)
-            env = AtariRescale42x42(env, variation,"pong")
+            env = AtariRescale42x42(env, variation,"breakout")
             return wrap_deepmind(env, **wrapper_kwargs)
 
         return _thunk
@@ -138,7 +138,7 @@ def main():
                         default='attention')
     parser.add_argument('--variation',
                         choices=['standard', 'moving-square', 'constant-rectangle', 'green-lines', 'diagonals'],
-                        default='green-lines', help='Env variation')
+                        default='diagonals', help='Env variation')
     parser.add_argument('--repr_coef', help='reprenstation loss coefficient', type=float, default=0.)
     parser.add_argument('--begin_repr', help='reprenstation loss coefficient', type=float, default=0.)
     parser.add_argument('--use-attention',help='if or not to use attention', type=int, default=1)
@@ -162,7 +162,8 @@ def main():
     logger.configure()
     # train_a2c(args.env, num_timesteps=args.num_timesteps, seed=args.seed, policy='cnn', \
     #     num_env=16, variation=args.variation)
-    train("PongNoFrameskip-v4", num_timesteps=args.num_timesteps, seed=args.seed, policy=args.policy, lr_schedule=args.lr_schedule,
+    # "PongNoFrameskip-v4"
+    train(args.env, num_timesteps=args.num_timesteps, seed=args.seed, policy=args.policy, lr_schedule=args.lr_schedule,
           num_env=16, variation=args.variation, repr_coef=args.repr_coef,learning_rate=args.lr,load_path=args.load_path,
           use_attention=(args.use_attention!=0),begin_repr=args.repr_coef,vf_coef=args.vf_coef,encoder_coef=args.encoder_coef
           ,decoder_coef=args.decoder_coef,regularize_coef=args.regularize_coef)
